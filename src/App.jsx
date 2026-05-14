@@ -456,20 +456,20 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
 
   return (
     <div style={{ ...GS.body, paddingBottom: 80 }}>
-      <div style={{ background: GREEN, padding: '13px 16px 28px' }}>
+      <div style={{ background: GREEN, padding: '13px 16px 32px' }}>
         <AppName />
       </div>
-      <div style={{ padding: '0 14px 14px' }}>
-        <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginTop: -16, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 16 }}>
+      <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: -18, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 22 }}>
           <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{dateStr}</div>
           <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 14 }}>Ciao, {firstName2} 👋</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '10px 12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Questo mese</div>
               <div style={{ fontSize: 24, fontWeight: 600, color: GREEN, lineHeight: 1 }}>{stats.count}</div>
               <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>rapporti inviati</div>
             </div>
-            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Ultimo invio</div>
               {stats.lastDate
                 ? <><div style={{ fontSize: 15, fontWeight: 500, color: '#333', marginTop: 2 }}>{stats.lastDate}</div><div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>ore {stats.lastTime}</div></>
@@ -479,9 +479,9 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
           </div>
         </div>
 
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Nuovo rapporto</div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10, marginTop: 4 }}>Nuovo rapporto</div>
 
-        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 10, padding: '14px 16px' }}>
+        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 12, padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
             <div style={{ width: 46, height: 46, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📋</div>
             <div>
