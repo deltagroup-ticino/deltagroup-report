@@ -311,8 +311,8 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
         <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 6, color: '#111' }}>Primo accesso</h2>
         <div style={{ background: '#fff7e6', border: '1px solid #f0c070', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
           <p style={{ fontSize: 13, color: '#7a5000', fontWeight: 500, marginBottom: 4 }}>📋 Come scrivere il tuo nome:</p>
-          <p style={{ fontSize: 13, color: '#7a5000' }}>Scrivi <strong>COGNOME in MAIUSCOLO</strong> seguito dal Nome con iniziale maiuscola.</p>
-          <p style={{ fontSize: 12, color: '#999', marginTop: 6 }}>Esempio: <strong>MANASSERI Paolo</strong></p>
+          <p style={{ fontSize: 13, color: '#7a5000' }}>Scrivi <strong>COGNOME e NOME tutti in MAIUSCOLO</strong>, esattamente come sei registrato in azienda.</p>
+          <p style={{ fontSize: 12, color: '#999', marginTop: 6 }}>Esempio: <strong>MANASSERI PAOLO</strong></p>
         </div>
         <div style={{ marginBottom: 10 }}>
           <div style={GS.label}>Cognome e Nome</div>
@@ -320,7 +320,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
             style={GS.input}
             value={name}
             onChange={e => setName(e.target.value)}
-            placeholder="Es. STEFANONI Marco"
+            placeholder="Es. STEFANONI MARCO"
             onKeyDown={e => e.key === 'Enter' && searchName()}
             autoCapitalize="words"
           />
