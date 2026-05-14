@@ -811,21 +811,25 @@ export default function App() {
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
 
-  useEffect(() => {
+  const checkSession = async () => {
     const session = getSession();
-    if (session) {
-      sb().then(c => c.from('report_collaborators').select('*').eq('id', session.collabId).eq('is_active', true).single()).then(({ data }) => {
-        if (data) {
-          setCollab(data);
-          if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) setScreen('regulation');
-          else setScreen('home');
-        } else {
-          clearSession();
-          setScreen('login');
-        }
-      });
+    if (!session) { setScreen('login'); return; }
+    try {
+      const c = await sb();
+      const { data } = await c.from('report_collaborators').select('*').eq('id', session.collabId).eq('is_active', true).single();
+      if (data) {
+        setCollab(data);
+        if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) setScreen('regulation');
+        else setScreen('home');
+      } else {
+        clearSession();
+        setScreen('login');
+      }
+    } catch {
+      clearSession();
+      setScreen('login');
     }
-  }, []);
+  };
 
   const handleLogin = (data) => {
     setCollab(data);
@@ -848,8 +852,7 @@ export default function App() {
   const goArchive = () => setScreen('archive');
   const goNew = () => setScreen('type');
 
-  if (screen === 'splash') return <SplashScreen onDone={() => setScreen(getSession() ? 'checkSession' : 'login')} />;
-  if (screen === 'checkSession') return <SplashScreen onDone={() => {}} />;
+  if (screen === 'splash') return <SplashScreen onDone={checkSession} />;
   if (screen === 'login') return <LoginScreen onLogin={handleLogin} onFirstAccess={() => setScreen('firstAccess')} />;
   if (screen === 'firstAccess') return <FirstAccessScreen onBack={() => setScreen('login')} onPinRevealed={(data) => { setCollab(data); setScreen('regulation'); }} />;
   if (screen === 'regulation') return <RegulationScreen collab={collab} onAccepted={() => { saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION }); setScreen('home'); }} />;
