@@ -451,8 +451,9 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
   const days = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
   const months = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
   const dateStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  const firstName = collab.agent_name.split(' ').slice(-1)[0];
   const firstName2 = collab.agent_name.includes(' ') ? collab.agent_name.split(' ').slice(1).join(' ') : collab.agent_name;
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Buongiorno' : hour < 18 ? 'Buon pomeriggio' : 'Buonasera';
 
   return (
     <div style={{ ...GS.body, minHeight: '100vh', paddingBottom: 70 }}>
@@ -462,7 +463,7 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
       <div style={{ padding: '0 16px' }}>
         <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: -16, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 36 }}>
           <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{dateStr}</div>
-          <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 16 }}>Ciao, {firstName2} 👋</div>
+          <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 16 }}>{greeting}, {firstName2} 👋</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '14px' }}>
               <div style={{ fontSize: 10, color: '#999', marginBottom: 4 }}>Questo mese</div>
