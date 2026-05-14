@@ -763,59 +763,164 @@ function SuccessScreen({ report, onHome, onArchive }) {
   );
 }
 
-// FIX 3: r.end_time corretto
-function ArchiveScreen({ collab, onHome }) {
+// ── PDF GENERATOR (collab) ─────────────────────────────────────────
+async function loadJsPDF() {
+  if (window.jspdf) return window.jspdf.jsPDF;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return window.jspdf.jsPDF;
+}
+
+async function generateAndSharePDF(report) {
+  const JsPDF = await loadJsPDF();
+  const doc = new JsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, M = 18;
+  let y = 18;
+  doc.setFillColor(27,107,27); doc.rect(0,0,W,28,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('DELTA', M, 12); doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('group', M+19.5, 12); doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('REPORT', M+31, 12); doc.setFontSize(12);
+  doc.text("N° "+report.report_number, W-M, 12, {align:'right'});
+  y=38; doc.setTextColor(27,107,27); doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text('RAPPORTO DI SERVIZIO', M, y);
+  y+=6; doc.setDrawColor(200,200,200); doc.line(M,y,W-M,y);
+  const field=(label,value,x,yw,maxW=80)=>{
+    doc.setTextColor(120,120,120); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+    doc.text(label,x,yw); doc.setTextColor(20,20,20); doc.setFontSize(10);
+    doc.text(String(value||'--'),x,yw+5,{maxWidth:maxW});
+  };
+  y+=8;
+  field('DATA', fromISO(report.service_date), M, y);
+  field('N. RAPPORTO', report.report_number, 70, y);
+  y+=14;
+  const agenti = Array.isArray(report.agents_json) ? report.agents_json.map(a=>a.name).join(', ') : (report.submitted_by_name||'');
+  field('AGENTI', agenti, M, y, 160);
+  y+=14; field('CLIENTE', report.client_name, M, y); field('LUOGO', report.location, 110, y);
+  y+=14; field('INDIRIZZO', report.address, M, y, 160);
+  y+=14; field('INIZIO', report.start_time||'--', M, y); field('FINE', report.end_time||'--', 80, y);
+  if(report.has_break){y+=14; field('PAUSA - COPERTA DA',report.break_covered_by||'--',M,y); field('INIZIO',report.break_start||'--',110,y); field('FINE',report.break_end||'--',150,y,30);}
+  if(report.notes){y+=18; doc.setDrawColor(230,230,230); doc.roundedRect(M,y-4,W-M*2,22,2,2,'S'); field('OSSERVAZIONI',report.notes,M+3,y,160);}
+  y+=28; doc.setDrawColor(200,200,200); doc.line(M,y,W-M,y); y+=8;
+  if(report.agent_signature){doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA AGENTE',M,y); try{doc.addImage(report.agent_signature,'PNG',M,y+3,75,20);}catch(e){} doc.rect(M,y+3,75,20);}
+  if(report.client_signature){doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA CLIENTE',115,y); if(report.client_signer_name){doc.setTextColor(40,40,40); doc.setFontSize(9); doc.text(report.client_signer_name,115,y+5);} try{doc.addImage(report.client_signature,'PNG',115,y+8,75,18);}catch(e){} doc.rect(115,y+3,75,20);}
+  const blob = doc.output('blob');
+  const file = new File([blob], "Rapporto_"+report.report_number+".pdf", {type:'application/pdf'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    await navigator.share({files:[file], title:"Rapporto "+report.report_number});
+  } else {
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }
+}
+
+function ReportDetailScreen({ report, onBack }) {
+  const [generating, setGenerating] = useState(false);
+  const handlePDF = async () => { setGenerating(true); try { await generateAndSharePDF(report); } catch(e){ alert('Errore PDF. Riprova.'); } setGenerating(false); };
+  const Row = ({label, value}) => value ? (<div style={{marginBottom:10}}><div style={{fontSize:10,color:'#888',marginBottom:2,textTransform:'uppercase',letterSpacing:0.3}}>{label}</div><div style={{fontSize:14,color:'#111'}}>{value}</div></div>) : null;
+  const agenti = Array.isArray(report.agents_json) ? report.agents_json.map(a=>a.name).join(', ') : report.submitted_by_name;
+  const sentAt = report.submitted_at ? new Date(report.submitted_at) : null;
+  const sentStr = sentAt ? String(sentAt.getDate()).padStart(2,'0')+'/'+String(sentAt.getMonth()+1).padStart(2,'0')+'/'+sentAt.getFullYear()+' alle '+String(sentAt.getHours()).padStart(2,'0')+':'+String(sentAt.getMinutes()).padStart(2,'0') : null;
+  return (
+    <div style={{...GS.body, paddingBottom:90}}>
+      <div style={{background:GREEN,padding:'13px 16px',display:'flex',alignItems:'center',gap:10}}>
+        <BackBtn onClick={onBack} />
+        <div><AppName /><div style={{color:'rgba(255,255,255,0.7)',fontSize:11,marginTop:2}}>{report.report_number}</div></div>
+      </div>
+      <div style={{padding:16}}>
+        {sentStr && <div style={{background:GREEN_LIGHT,borderRadius:9,padding:'8px 13px',marginBottom:14,fontSize:12,color:'#1a5c1a'}}>📤 Inviato il {sentStr}</div>}
+        <div style={GS.card}>
+          <Row label="Data servizio" value={fromISO(report.service_date)} />
+          <Row label="Agenti" value={agenti} />
+          <Row label="Cliente" value={report.client_name} />
+          <Row label="Luogo" value={report.location} />
+          <Row label="Indirizzo" value={report.address} />
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
+            <div><div style={{fontSize:10,color:'#888',marginBottom:2,textTransform:'uppercase'}}>Inizio</div><div style={{fontSize:14}}>{report.start_time||'--'}</div></div>
+            <div><div style={{fontSize:10,color:'#888',marginBottom:2,textTransform:'uppercase'}}>Fine</div><div style={{fontSize:14}}>{report.end_time||'--'}</div></div>
+          </div>
+          {report.has_break && <Row label="Pausa" value={report.break_start+'--'+report.break_end+' ('+report.break_covered_by+')'} />}
+          {report.notes && <Row label="Osservazioni" value={report.notes} />}
+          <span style={{fontSize:10,padding:'2px 8px',borderRadius:4,fontWeight:500,background:report.report_type==='pdf_firma'?GREEN_LIGHT:'#f0f0f0',color:report.report_type==='pdf_firma'?'#1a5c1a':'#555'}}>
+            {report.report_type==='pdf_firma'?'PDF – Con firma cliente':'Solo testo'}
+          </span>
+        </div>
+        {(report.agent_signature||report.client_signature) && (
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+            {report.agent_signature && <div style={GS.card}><div style={{fontSize:10,color:'#888',marginBottom:6}}>FIRMA AGENTE</div><img src={report.agent_signature} style={{width:'100%',height:60,objectFit:'contain',border:'0.5px solid #eee',borderRadius:6}} /></div>}
+            {report.client_signature && <div style={GS.card}><div style={{fontSize:10,color:'#888',marginBottom:4}}>FIRMA CLIENTE</div>{report.client_signer_name&&<div style={{fontSize:11,fontWeight:500,marginBottom:4}}>{report.client_signer_name}</div>}<img src={report.client_signature} style={{width:'100%',height:60,objectFit:'contain',border:'0.5px solid #eee',borderRadius:6}} /></div>}
+          </div>
+        )}
+        <button onClick={handlePDF} disabled={generating} style={{...GS.btnGreen,opacity:generating?0.6:1}}>
+          {generating?'Generazione PDF...':'📄 Visualizza / Condividi PDF'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ArchiveScreen({ collab, onHome, onOpenReport }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    sb().then(c => c.from('dr_reports').select('id,report_number,service_date,client_name,address,location,start_time,end_time,report_type').eq('submitted_by_id', collab.id).gte('service_date', threeMonthsAgo.toISOString().split('T')[0]).order('service_date', { ascending: false })).then(({ data }) => {
-      if (data) setReports(data);
-      setLoading(false);
-    });
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
+    sb().then(c => c.from('dr_reports')
+      .select('id,report_number,service_date,submitted_at,client_name,address,location,start_time,end_time,report_type,has_break,break_covered_by,break_start,break_end,notes,agent_signature,client_signature,client_signer_name,agents_json,submitted_by_name')
+      .eq('submitted_by_id', collab.id)
+      .gte('service_date', threeMonthsAgo.toISOString().split('T')[0])
+      .order('service_date', {ascending:false})
+    ).then(({data}) => { if(data) setReports(data); setLoading(false); });
   }, []);
 
   const grouped = {};
   reports.forEach(r => {
-    const d = new Date(r.service_date + 'T12:00:00');
-    const key = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-    if (!grouped[key]) grouped[key] = [];
+    const d = new Date(r.service_date+'T12:00:00');
+    const key = MONTHS[d.getMonth()]+' '+d.getFullYear();
+    if(!grouped[key]) grouped[key]=[];
     grouped[key].push(r);
   });
 
+  const fmtSent = (iso) => {
+    if(!iso) return null;
+    const d = new Date(iso);
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  };
+
   return (
-    <div style={{ ...GS.body, paddingBottom: 70 }}>
-      <div style={GS.header}>
-        <AppName />
-      </div>
-      <div style={{ padding: '16px 16px 0' }}>
-        {loading && <p style={{ textAlign: 'center', color: '#888', padding: 30 }}>Caricamento…</p>}
-        {!loading && Object.keys(grouped).length === 0 && <p style={{ textAlign: 'center', color: '#888', padding: 30 }}>Nessun rapporto negli ultimi 3 mesi.</p>}
-        {Object.entries(grouped).map(([month, rpts]) => (
+    <div style={{...GS.body,paddingBottom:70}}>
+      <div style={GS.header}><AppName /></div>
+      <div style={{padding:'16px 16px 0'}}>
+        {loading && <p style={{textAlign:'center',color:'#888',padding:30}}>Caricamento...</p>}
+        {!loading && Object.keys(grouped).length===0 && <p style={{textAlign:'center',color:'#888',padding:30}}>Nessun rapporto negli ultimi 3 mesi.</p>}
+        {Object.entries(grouped).map(([month,rpts]) => (
           <div key={month}>
             <div style={GS.sectionLabel}>{month}</div>
             {rpts.map(r => (
-              <div key={r.id} style={GS.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                  <div style={{ fontWeight: 500, fontSize: 14 }}>{r.client_name}</div>
-                  <div style={{ fontSize: 11, color: '#999' }}>{fromISO(r.service_date)}</div>
+              <div key={r.id} onClick={() => onOpenReport(r)} style={{...GS.card,cursor:'pointer'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:3}}>
+                  <div style={{fontWeight:500,fontSize:14}}>{r.client_name}</div>
+                  <div style={{fontSize:11,color:'#999'}}>{fromISO(r.service_date)}</div>
                 </div>
-                <div style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>
-                  {r.address}{r.start_time && r.end_time ? ` · ${r.start_time}–${r.end_time}` : r.start_time ? ` · ${r.start_time}` : ''}
+                <div style={{fontSize:12,color:'#666',marginBottom:6}}>
+                  {r.address}{r.start_time&&r.end_time?' · '+r.start_time+'–'+r.end_time:r.start_time?' · '+r.start_time:''}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, color: '#999' }}>{r.report_number}</span>
-                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 500, background: r.report_type === 'pdf_firma' ? GREEN_LIGHT : '#f0f0f0', color: r.report_type === 'pdf_firma' ? '#1a5c1a' : '#555' }}>
-                    {r.report_type === 'pdf_firma' ? 'PDF' : 'Testo'}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <span style={{fontSize:10,color:'#888'}}>📤 {fmtSent(r.submitted_at)}</span>
+                  <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,fontWeight:500,background:r.report_type==='pdf_firma'?GREEN_LIGHT:'#f0f0f0',color:r.report_type==='pdf_firma'?'#1a5c1a':'#555'}}>
+                    {r.report_type==='pdf_firma'?'PDF':'Testo'}
                   </span>
                 </div>
               </div>
             ))}
           </div>
         ))}
-        <p style={{ fontSize: 11, color: '#bbb', textAlign: 'center', marginTop: 10 }}>Archivio limitato agli ultimi 3 mesi</p>
+        <p style={{fontSize:11,color:'#bbb',textAlign:'center',marginTop:10}}>Archivio limitato agli ultimi 3 mesi</p>
       </div>
       <BottomNav active="archive" onHome={onHome} onArchive={() => {}} />
     </div>
@@ -829,55 +934,35 @@ export default function App() {
   const [formData, setFormData] = useState(null);
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
 
   const checkSession = async () => {
     const session = getSession();
-    if (!session) { setScreen('login'); return; }
+    if(!session){setScreen('login');return;}
     try {
       const c = await sb();
-      const { data } = await c.from('report_collaborators').select('*').eq('id', session.collabId).eq('is_active', true).single();
-      if (data) {
-        setCollab(data);
-        if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) setScreen('regulation');
-        else setScreen('home');
-      } else {
-        clearSession();
-        setScreen('login');
-      }
-    } catch {
-      clearSession();
-      setScreen('login');
-    }
+      const {data} = await c.from('report_collaborators').select('*').eq('id',session.collabId).eq('is_active',true).single();
+      if(data){setCollab(data); if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation'); else setScreen('home');}
+      else{clearSession();setScreen('login');}
+    } catch{clearSession();setScreen('login');}
   };
 
-  const handleLogin = (data) => {
-    setCollab(data);
-    if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) setScreen('regulation');
-    else setScreen('home');
-  };
+  const handleLogin=(data)=>{setCollab(data); if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation'); else setScreen('home');};
+  const handleLogout=()=>{clearSession();setCollab(null);setScreen('login');};
+  const handleFormNext=async(fd)=>{setFormData(fd);const c=await sb();const{data:num}=await c.rpc('next_report_number');setReportNumber(num);setScreen('preview');};
+  const handleSubmitted=(rpt)=>{setSubmittedReport(rpt);setScreen('success');};
+  const goHome=()=>setScreen('home');
+  const goArchive=()=>setScreen('archive');
 
-  const handleLogout = () => { clearSession(); setCollab(null); setScreen('login'); };
-
-  const handleFormNext = async (fd) => {
-    setFormData(fd);
-    const c = await sb();
-    const { data: num } = await c.rpc('next_report_number');
-    setReportNumber(num);
-    setScreen('preview');
-  };
-
-  const handleSubmitted = (rpt) => { setSubmittedReport(rpt); setScreen('success'); };
-  const goHome = () => setScreen('home');
-  const goArchive = () => setScreen('archive');
-
-  if (screen === 'splash') return <SplashScreen onDone={checkSession} />;
-  if (screen === 'login') return <LoginScreen onLogin={handleLogin} onFirstAccess={() => setScreen('firstAccess')} />;
-  if (screen === 'firstAccess') return <FirstAccessScreen onBack={() => setScreen('login')} onPinRevealed={(data) => { setCollab(data); setScreen('regulation'); }} />;
-  if (screen === 'regulation') return <RegulationScreen collab={collab} onAccepted={() => { saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION }); setScreen('home'); }} />;
-  if (screen === 'home') return <HomeScreen collab={collab} onNew={(t) => { setReportType(t); setScreen('form'); }} onArchive={goArchive} onLogout={handleLogout} />;
-  if (screen === 'form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
-  if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
-  if (screen === 'success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
-  if (screen === 'archive') return <ArchiveScreen collab={collab} onHome={goHome} />;
+  if(screen==='splash') return <SplashScreen onDone={checkSession} />;
+  if(screen==='login') return <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
+  if(screen==='firstAccess') return <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
+  if(screen==='regulation') return <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION});setScreen('home');}} />;
+  if(screen==='home') return <HomeScreen collab={collab} onNew={(t)=>{setReportType(t);setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} />;
+  if(screen==='form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
+  if(screen==='preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
+  if(screen==='success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
+  if(screen==='archive') return <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} />;
+  if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} />;
   return null;
 }
