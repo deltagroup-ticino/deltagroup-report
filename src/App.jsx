@@ -440,12 +440,11 @@ function HomeScreen({ collab, onNew, onArchive, onLogout }) {
   );
 }
 
-function ReportTypeScreen({ onBack, onSelect }) {
+function ReportTypeScreen({ onSelect, onHome, onArchive }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f5f5', paddingBottom: 70 }}>
       <div style={{ ...GS.header }}>
-        <BackBtn onClick={onBack} />
-        <span style={GS.headerTitle}>Nuovo Rapporto</span>
+        <AppName />
       </div>
       <div style={{ padding: 20 }}>
         <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto:</p>
@@ -470,11 +469,12 @@ function ReportTypeScreen({ onBack, onSelect }) {
           </div>
         </div>
       </div>
+      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
     </div>
   );
 }
 
-function ReportFormScreen({ collab, reportType, onBack, onNext }) {
+function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
   const [agents, setAgents] = useState([]);
   const [allAgents, setAllAgents] = useState([]);
   const [agentSearch, setAgentSearch] = useState('');
@@ -511,10 +511,10 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
   const filteredAgents = allAgents.filter(a => !agents.find(ag => ag.id === a.id) && a.agent_name.toLowerCase().includes(agentSearch.toLowerCase()));
 
   return (
-    <div style={{ ...GS.body, paddingBottom: 20 }}>
+    <div style={{ ...GS.body, paddingBottom: 70 }}>
       <div style={GS.header}>
-        <BackBtn onClick={onBack} />
-        <span style={GS.headerTitle}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
+        <AppName />
+        <span style={{ ...GS.headerTitle, marginLeft: 8, fontSize: 13, opacity: 0.85 }}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
       </div>
       <div style={{ padding: 16 }}>
         <div style={GS.card}>
@@ -599,11 +599,12 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
+      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
     </div>
   );
 }
 
-function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onSubmit }) {
+function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive }) {
   const { form, agents } = formData;
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
@@ -668,8 +669,8 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
         />
       )}
       <div style={GS.header}>
-        <BackBtn onClick={onBack} />
-        <span style={GS.headerTitle}>Anteprima</span>
+        <AppName />
+        <span style={{ ...GS.headerTitle, marginLeft: 8, fontSize: 13, opacity: 0.85 }}>Anteprima</span>
       </div>
       <div style={{ padding: 16 }}>
         <div style={{ ...GS.card, background: '#fafafa' }}>
@@ -732,6 +733,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
           {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome.' : 'Completa la firma agente.'}
         </p>}
       </div>
+      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
     </div>
   );
 }
@@ -753,7 +755,7 @@ function SuccessScreen({ report, onHome, onArchive }) {
 }
 
 // FIX 3: r.end_time corretto
-function ArchiveScreen({ collab, onBack, onHome, onNew }) {
+function ArchiveScreen({ collab, onHome, onNew }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -777,8 +779,7 @@ function ArchiveScreen({ collab, onBack, onHome, onNew }) {
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
       <div style={GS.header}>
-        <BackBtn onClick={onBack} />
-        <span style={GS.headerTitle}>Archivio Rapporti</span>
+        <AppName />
       </div>
       <div style={{ padding: '16px 16px 0' }}>
         {loading && <p style={{ textAlign: 'center', color: '#888', padding: 30 }}>Caricamento…</p>}
@@ -866,10 +867,10 @@ export default function App() {
   if (screen === 'firstAccess') return <FirstAccessScreen onBack={() => setScreen('login')} onPinRevealed={(data) => { setCollab(data); setScreen('regulation'); }} />;
   if (screen === 'regulation') return <RegulationScreen collab={collab} onAccepted={() => { saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION }); setScreen('home'); }} />;
   if (screen === 'home') return <HomeScreen collab={collab} onNew={goNew} onArchive={goArchive} onLogout={handleLogout} />;
-  if (screen === 'type') return <ReportTypeScreen onBack={goHome} onSelect={(t) => { setReportType(t); setScreen('form'); }} />;
-  if (screen === 'form') return <ReportFormScreen collab={collab} reportType={reportType} onBack={() => setScreen('type')} onNext={handleFormNext} />;
-  if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onBack={() => setScreen('form')} onSubmit={handleSubmitted} />;
+  if (screen === 'type') return <ReportTypeScreen onSelect={(t) => { setReportType(t); setScreen('form'); }} onHome={goHome} onArchive={goArchive} />;
+  if (screen === 'form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
+  if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
-  if (screen === 'archive') return <ArchiveScreen collab={collab} onBack={goHome} onHome={goHome} onNew={goNew} />;
+  if (screen === 'archive') return <ArchiveScreen collab={collab} onHome={goHome} onNew={goNew} />;
   return null;
 }
