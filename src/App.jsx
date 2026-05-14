@@ -958,7 +958,7 @@ function ArchiveScreen({ collab, onHome, onOpenReport, onRegolamento, hasNewRego
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
     sb().then(c => c.from('dr_reports')
-      .select('id,report_number,service_date,submitted_at,client_name,address,location,start_time,end_time,report_type,has_break,break_covered_by,break_start,break_end,notes,agent_signature,client_signature,client_signer_name,agents_json,submitted_by_name')
+      .select('id,report_number,service_date,submitted_at,client_name,address,location,start_time,end_time,report_type,has_break,break_covered_by,break_start,break_end,notes,agent_signature,client_signature,client_signer_name,client_unavailable,agents_json,submitted_by_name')
       .eq('submitted_by_id', collab.id)
       .gte('service_date', threeMonthsAgo.toISOString().split('T')[0])
       .order('service_date', {ascending:false})
