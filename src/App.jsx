@@ -935,8 +935,12 @@ export default function App() {
     try {
       const c = await sb();
       const {data} = await c.from('report_collaborators').select('*').eq('id',session.collabId).eq('is_active',true).single();
-      if(data){setCollab(data); if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation'); else setScreen('home');}
-      else{clearSession();setScreen('login');}
+      if(data){
+        if(!data.pin_revealed){clearSession();setScreen('login');return;}
+        setCollab(data);
+        if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation');
+        else setScreen('home');
+      } else{clearSession();setScreen('login');}
     } catch{clearSession();setScreen('login');}
   };
 
