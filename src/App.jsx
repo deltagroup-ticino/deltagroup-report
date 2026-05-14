@@ -27,8 +27,18 @@ async function sb() {
 }
 
 const SESSION_KEY = 'drCollab';
-function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
-function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); }
+const SESSION_DAYS = 30;
+function getSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (!s) return null;
+    if (s.savedAt && Date.now() - s.savedAt > SESSION_DAYS * 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(SESSION_KEY); return null;
+    }
+    return s;
+  } catch { return null; }
+}
+function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); }
 function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
@@ -82,17 +92,16 @@ function Logo({ size = 60 }) {
   );
 }
 
-function BottomNav({ active, onHome, onNew, onArchive }) {
+function BottomNav({ active, onHome, onArchive }) {
   const btn = (label, icon, isActive, onClick) => (
-    <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <span style={{ fontSize: 22, lineHeight: 1 }}>{icon}</span>
-      <span style={{ fontSize: 10, color: isActive ? GREEN : '#999', fontFamily: 'inherit', fontWeight: isActive ? 600 : 400 }}>{label}</span>
+    <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, touchAction: 'manipulation' }}>
+      <span style={{ fontSize: 24, lineHeight: 1 }}>{icon}</span>
+      <span style={{ fontSize: 11, color: isActive ? GREEN : '#999', fontFamily: 'inherit', fontWeight: isActive ? 600 : 400 }}>{label}</span>
     </button>
   );
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '0.5px solid #e0e0e0', display: 'flex', zIndex: 100, paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {btn('Home', '🏠', active === 'home', onHome)}
-      {btn('Rapporto', '📋', active === 'new', onNew)}
       {btn('Archivio', '📁', active === 'archive', onArchive)}
     </div>
   );
@@ -398,13 +407,6 @@ function RegulationScreen({ collab, onAccepted }) {
 }
 
 function HomeScreen({ collab, onNew, onArchive, onLogout }) {
-  const [recent, setRecent] = useState([]);
-
-  useEffect(() => {
-    sb().then(c => c.from('dr_reports').select('id,report_number,service_date,client_name,address,report_type').eq('submitted_by_id', collab.id).order('service_date', { ascending: false }).limit(5)).then(({ data }) => {
-      if (data) setRecent(data);
-    });
-  }, []);
 
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
@@ -415,27 +417,28 @@ function HomeScreen({ collab, onNew, onArchive, onLogout }) {
         </div>
         <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, color: '#fff', padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Esci</button>
       </div>
-      <div style={{ padding: '16px 16px 0' }}>
-        <button onClick={onNew} style={{ ...GS.btnGreen, marginBottom: 20, fontSize: 16, padding: 17 }}>
-          <span style={{ fontSize: 22 }}>📋</span> Nuovo Rapporto
-        </button>
-        <div style={GS.sectionLabel}>Ultimi rapporti inviati</div>
-        {recent.length === 0 && <p style={{ color: '#888', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Nessun rapporto ancora inviato.</p>}
-        {recent.map(r => (
-          <div key={r.id} style={GS.card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <div style={{ fontWeight: 500, fontSize: 14 }}>{r.client_name}</div>
-              <div style={{ fontSize: 11, color: '#999' }}>{fromISO(r.service_date)}</div>
+      <div style={{ padding: '20px 16px 0' }}>
+        <p style={{ color: '#888', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>Seleziona il tipo di rapporto da compilare:</p>
+        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 14, padding: '18px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 50, height: 50, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>📋</div>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 3 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 13, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
             </div>
-            <div style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>{r.address}</div>
-            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 5, fontWeight: 500, background: r.report_type === 'pdf_firma' ? GREEN_LIGHT : '#f0f0f0', color: r.report_type === 'pdf_firma' ? '#1a5c1a' : '#555' }}>
-              {r.report_type === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}
-            </span>
           </div>
-        ))}
-        {recent.length > 0 && <button onClick={onArchive} style={{ ...GS.btnGray, marginTop: 4 }}>Vedi archivio completo →</button>}
+        </div>
+        <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1.5px solid #ccc', padding: '18px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 50, height: 50, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>📝</div>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 3 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>Solo testo · Nessuna firma cliente</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <BottomNav active="home" onHome={() => {}} onNew={onNew} onArchive={onArchive} />
+      <BottomNav active="home" onHome={() => {}} onArchive={onArchive} />
     </div>
   );
 }
@@ -469,7 +472,7 @@ function ReportTypeScreen({ onSelect, onHome, onArchive }) {
           </div>
         </div>
       </div>
-      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
     </div>
   );
 }
@@ -504,8 +507,9 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
     if (!form.address.trim()) e.address = 'Obbligatorio';
     if (!form.startTime) e.startTime = 'Obbligatorio';
     if (!form.endTime) e.endTime = 'Obbligatorio';
+    if (form.startTime && form.endTime && form.startTime >= form.endTime) e.timeWarning = true;
     setErrors(e);
-    return Object.keys(e).length === 0;
+    return Object.keys(e).length === 0 || (Object.keys(e).length === 1 && e.timeWarning);
   };
 
   const filteredAgents = allAgents.filter(a => !agents.find(ag => ag.id === a.id) && a.agent_name.toLowerCase().includes(agentSearch.toLowerCase()));
@@ -574,6 +578,11 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
               {errors.endTime && <div style={{ color: '#e24b4a', fontSize: 11, marginTop: 3 }}>{errors.endTime}</div>}
             </div>
           </div>
+          {form.startTime && form.endTime && form.startTime >= form.endTime && (
+            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#faeeda', borderRadius: 7, fontSize: 12, color: '#854f0b', display: 'flex', alignItems: 'center', gap: 6 }}>
+              ⚠️ Fine precedente all'inizio — corretto solo per servizio notturno
+            </div>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <input type="checkbox" checked={form.hasBreak} onChange={e => upd('hasBreak', e.target.checked)} style={{ width: 18, height: 18, accentColor: GREEN }} />
             <span style={{ fontSize: 14, fontWeight: 500 }}>Pausa effettuata</span>
@@ -599,7 +608,7 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
-      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
     </div>
   );
 }
@@ -733,7 +742,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
           {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome.' : 'Completa la firma agente.'}
         </p>}
       </div>
-      <BottomNav active="new" onHome={onHome} onNew={() => {}} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
     </div>
   );
 }
@@ -808,7 +817,7 @@ function ArchiveScreen({ collab, onHome, onNew }) {
         ))}
         <p style={{ fontSize: 11, color: '#bbb', textAlign: 'center', marginTop: 10 }}>Archivio limitato agli ultimi 3 mesi</p>
       </div>
-      <BottomNav active="archive" onHome={onHome} onNew={onNew} onArchive={() => {}} />
+      <BottomNav active="archive" onHome={onHome} onArchive={() => {}} />
     </div>
   );
 }
@@ -860,14 +869,12 @@ export default function App() {
   const handleSubmitted = (rpt) => { setSubmittedReport(rpt); setScreen('success'); };
   const goHome = () => setScreen('home');
   const goArchive = () => setScreen('archive');
-  const goNew = () => setScreen('type');
 
   if (screen === 'splash') return <SplashScreen onDone={checkSession} />;
   if (screen === 'login') return <LoginScreen onLogin={handleLogin} onFirstAccess={() => setScreen('firstAccess')} />;
   if (screen === 'firstAccess') return <FirstAccessScreen onBack={() => setScreen('login')} onPinRevealed={(data) => { setCollab(data); setScreen('regulation'); }} />;
   if (screen === 'regulation') return <RegulationScreen collab={collab} onAccepted={() => { saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION }); setScreen('home'); }} />;
-  if (screen === 'home') return <HomeScreen collab={collab} onNew={goNew} onArchive={goArchive} onLogout={handleLogout} />;
-  if (screen === 'type') return <ReportTypeScreen onSelect={(t) => { setReportType(t); setScreen('form'); }} onHome={goHome} onArchive={goArchive} />;
+  if (screen === 'home') return <HomeScreen collab={collab} onNew={(t) => { setReportType(t); setScreen('form'); }} onArchive={goArchive} onLogout={handleLogout} />;
   if (screen === 'form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
