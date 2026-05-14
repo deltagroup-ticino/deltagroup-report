@@ -669,7 +669,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
   );
 
   return (
-    <div style={{ ...GS.body, paddingBottom: 20 }}>
+    <div style={{ ...GS.body, paddingBottom: 90 }}>
       {showSigOverlay && (
         <SignatureOverlay
           title={showSigOverlay === 'agent' ? 'Firma Agente' : 'Firma Cliente'}
