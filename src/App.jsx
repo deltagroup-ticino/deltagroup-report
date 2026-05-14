@@ -44,9 +44,9 @@ const GS = {
   card: { background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 10, border: '0.5px solid #e0e0e0' },
   label: { fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 },
   input: { width: '100%', padding: '11px 13px', border: '0.5px solid #ccc', borderRadius: 9, fontSize: 15, boxSizing: 'border-box', background: '#fff', fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' },
-  btnGreen: { width: '100%', padding: 15, background: GREEN, color: '#fff', border: 'none', borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' },
-  btnOutline: { width: '100%', padding: 13, background: 'none', border: `1.5px solid ${GREEN}`, borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', color: GREEN, fontFamily: 'inherit' },
-  btnGray: { width: '100%', padding: 13, background: 'none', border: '0.5px solid #ccc', borderRadius: 11, fontSize: 14, cursor: 'pointer', color: '#555', fontFamily: 'inherit' },
+  btnGreen: { width: '100%', padding: 15, background: GREEN, color: '#fff', border: 'none', borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit', touchAction: 'manipulation' },
+  btnOutline: { width: '100%', padding: 13, background: 'none', border: `1.5px solid ${GREEN}`, borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', color: GREEN, fontFamily: 'inherit', touchAction: 'manipulation' },
+  btnGray: { width: '100%', padding: 13, background: 'none', border: '0.5px solid #ccc', borderRadius: 11, fontSize: 14, cursor: 'pointer', color: '#555', fontFamily: 'inherit', touchAction: 'manipulation' },
   backBtn: { background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 44, height: 44, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20, WebkitTapHighlightColor: 'transparent' },
   sectionLabel: { fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '18px 0 8px' },
 };
@@ -65,11 +65,11 @@ function AppName({ size = 'md' }) {
 }
 
 function BackBtn({ onClick }) {
-  const handlePress = (e) => { e.preventDefault(); e.stopPropagation(); onClick(); };
   return (
-    <button type="button" onClick={handlePress} onTouchEnd={handlePress}
-      style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 10, minWidth: 44, minHeight: 44, width: 44, height: 44, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24, padding: 0, WebkitAppearance: 'none', touchAction: 'manipulation' }}
-    >‹</button>
+    <div
+      onClick={onClick}
+      style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 10, minWidth: 44, minHeight: 44, width: 44, height: 44, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 26, touchAction: 'manipulation', cursor: 'pointer', WebkitUserSelect: 'none', userSelect: 'none' }}
+    >‹</div>
   );
 }
 
