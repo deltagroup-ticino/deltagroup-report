@@ -92,17 +92,21 @@ function Logo({ size = 60 }) {
   );
 }
 
-function BottomNav({ active, onHome, onArchive }) {
-  const btn = (label, icon, isActive, onClick) => (
-    <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, touchAction: 'manipulation' }}>
-      <span style={{ fontSize: 24, lineHeight: 1 }}>{icon}</span>
+function BottomNav({ active, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
+  const btn = (label, icon, isActive, onClick, showDot) => (
+    <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, touchAction: 'manipulation', position: 'relative' }}>
+      <span style={{ fontSize: 24, lineHeight: 1, position: 'relative' }}>
+        {icon}
+        {showDot && <span style={{ position: 'absolute', top: -2, right: -4, width: 9, height: 9, borderRadius: '50%', background: '#e24b4a', border: '1.5px solid #fff' }} />}
+      </span>
       <span style={{ fontSize: 11, color: isActive ? GREEN : '#999', fontFamily: 'inherit', fontWeight: isActive ? 600 : 400 }}>{label}</span>
     </button>
   );
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '0.5px solid #e0e0e0', display: 'flex', zIndex: 100, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {btn('Home', '🏠', active === 'home', onHome)}
-      {btn('Archivio', '📁', active === 'archive', onArchive)}
+      {btn('Home', '🏠', active === 'home', onHome, false)}
+      {btn('Archivio', '📁', active === 'archive', onArchive, false)}
+      {btn('Regolamento', '📄', active === 'regolamento', onRegolamento, hasNewRegolamento)}
     </div>
   );
 }
@@ -419,7 +423,7 @@ function RegulationScreen({ collab, onAccepted }) {
   );
 }
 
-function HomeScreen({ collab, onNew, onArchive, onLogout }) {
+function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
 
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
@@ -451,7 +455,7 @@ function HomeScreen({ collab, onNew, onArchive, onLogout }) {
           </div>
         </div>
       </div>
-      <BottomNav active="home" onHome={() => {}} onArchive={onArchive} />
+      <BottomNav active="home" onHome={() => {}} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
@@ -485,12 +489,12 @@ function ReportTypeScreen({ onSelect, onHome, onArchive }) {
           </div>
         </div>
       </div>
-      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
 
-function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
+function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
   const [agents, setAgents] = useState([]);
   const [allAgents, setAllAgents] = useState([]);
   const [agentSearch, setAgentSearch] = useState('');
@@ -621,12 +625,12 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive }) {
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
-      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
 
-function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive }) {
+function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
   const { form, agents } = formData;
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
@@ -755,7 +759,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
           {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome.' : 'Completa la firma agente.'}
         </p>}
       </div>
-      <BottomNav active="home" onHome={onHome} onArchive={onArchive} />
+      <BottomNav active="home" onHome={onHome} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
@@ -831,7 +835,7 @@ async function generateAndSharePDF(report) {
   }
 }
 
-function ReportDetailScreen({ report, onBack, onHome }) {
+function ReportDetailScreen({ report, onBack, onHome, onRegolamento, hasNewRegolamento }) {
   const [generating, setGenerating] = useState(false);
   const handlePDF = async () => { setGenerating(true); try { await generateAndSharePDF(report); } catch(e){ alert('Errore PDF. Riprova.'); } setGenerating(false); };
   const Row = ({label, value}) => value ? (<div style={{marginBottom:10}}><div style={{fontSize:10,color:'#888',marginBottom:2,textTransform:'uppercase',letterSpacing:0.3}}>{label}</div><div style={{fontSize:14,color:'#111'}}>{value}</div></div>) : null;
@@ -872,12 +876,12 @@ function ReportDetailScreen({ report, onBack, onHome }) {
           {generating?'Generazione PDF...':'📄 Visualizza / Condividi PDF'}
         </button>
       </div>
-      <BottomNav active="archive" onHome={onHome} onArchive={onBack} />
+      <BottomNav active="archive" onHome={onHome} onArchive={onBack} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
 
-function ArchiveScreen({ collab, onHome, onOpenReport }) {
+function ArchiveScreen({ collab, onHome, onOpenReport, onRegolamento, hasNewRegolamento }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -936,11 +940,34 @@ function ArchiveScreen({ collab, onHome, onOpenReport }) {
         ))}
         <p style={{fontSize:11,color:'#bbb',textAlign:'center',marginTop:10}}>Archivio limitato agli ultimi 3 mesi</p>
       </div>
-      <BottomNav active="archive" onHome={onHome} onArchive={() => {}} />
+      <BottomNav active="archive" onHome={onHome} onArchive={() => {}} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
   );
 }
 
+
+function RegolamentoReadScreen({ collab, onHome, onArchive, onRegolamento, hasNewRegolamento, onRead }) {
+  const [regulation, setRegulation] = useState('Caricamento…');
+
+  useEffect(() => {
+    sb().then(c => c.from('report_regulations').select('content,version').order('version', { ascending: false }).limit(1).single()).then(({ data }) => {
+      if (data) { setRegulation(data.content); onRead(data.version); }
+    });
+  }, []);
+
+  return (
+    <div style={{ ...GS.body, paddingBottom: 80 }}>
+      <div style={{ background: GREEN, padding: '13px 16px' }}>
+        <AppName />
+        <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>Regolamento compilazione rapporti</div>
+      </div>
+      <div style={{ margin: 16, background: '#fff', borderRadius: 12, padding: 16, border: '0.5px solid #e0e0e0', fontSize: 13, color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap', minHeight: 200 }}>
+        {regulation}
+      </div>
+      <BottomNav active="regolamento" onHome={onHome} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={false} />
+    </div>
+  );
+}
 export default function App() {
   const [screen, setScreen] = useState('splash');
   const [collab, setCollab] = useState(null);
@@ -949,6 +976,7 @@ export default function App() {
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [latestRegVersion, setLatestRegVersion] = useState(0);
 
   const checkSession = async () => {
     const session = getSession();
@@ -959,6 +987,9 @@ export default function App() {
       if(data){
         if(!data.pin_revealed){clearSession();setScreen('login');return;}
         setCollab(data);
+        const c2 = await sb();
+        const { data: reg } = await c2.from('report_regulations').select('version').order('version',{ascending:false}).limit(1).single();
+        if (reg) setLatestRegVersion(reg.version);
         if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation');
         else setScreen('home');
       } else{clearSession();setScreen('login');}
@@ -971,16 +1002,19 @@ export default function App() {
   const handleSubmitted=(rpt)=>{setSubmittedReport(rpt);setScreen('success');};
   const goHome=()=>setScreen('home');
   const goArchive=()=>setScreen('archive');
+  const goRegolamento=()=>setScreen('regolamento');
+  const hasNewReg = collab ? latestRegVersion > (collab.regulation_version||0) : false;
 
   if(screen==='splash') return <SplashScreen onDone={checkSession} />;
   if(screen==='login') return <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
   if(screen==='firstAccess') return <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
   if(screen==='regulation') return <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION});setScreen('home');}} />;
-  if(screen==='home') return <HomeScreen collab={collab} onNew={(t)=>{setReportType(t);setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} />;
-  if(screen==='form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
-  if(screen==='preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
+  if(screen==='home') return <HomeScreen collab={collab} onNew={(t)=>{setReportType(t);setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  if(screen==='form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  if(screen==='preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   if(screen==='success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
-  if(screen==='archive') return <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} />;
-  if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} onHome={goHome} />;
+  if(screen==='archive') return <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  if(screen==='regolamento') return <RegolamentoReadScreen collab={collab} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={false} onRead={(v) => setLatestRegVersion(prev => Math.min(prev, v))} />;
+  if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} onHome={goHome} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   return null;
 }
