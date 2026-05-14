@@ -1,18 +1,16 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.0                     ║
-// ║  PWA mobile-first · Verde #1B6B1B                               ║
-// ║  Supabase: golheevkvfqcpgovnawj                                  ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.1                     ║
+// ║  Fix: primo accesso maiuscolo, report number, archivio          ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.0';
+const APP_VERSION = 'v1.1';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
-const REGULATION_VERSION = 1; // Incrementare quando si aggiorna il regolamento
+const REGULATION_VERSION = 1;
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ── SUPABASE CLIENT ────────────────────────────────────────────────
 let _sb = null;
 async function sb() {
   if (_sb) return _sb;
@@ -28,20 +26,17 @@ async function sb() {
   return _sb;
 }
 
-// ── SESSION STORAGE ────────────────────────────────────────────────
 const SESSION_KEY = 'drCollab';
 function getSession() { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
 function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify(data)); }
 function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
-// ── UTILS ──────────────────────────────────────────────────────────
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const toISO = (ddmmyyyy) => { const [d,m,y] = ddmmyyyy.split('/'); return `${y}-${m}-${d}`; };
-const fromISO = (iso) => { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
+const fromISO = (iso) => { if(!iso) return '—'; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
 const isLate = (serviceDateISO) => { const svc = new Date(serviceDateISO + 'T00:00:00'); const now = new Date(); now.setHours(0,0,0,0); return svc < now; };
 const MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
-// ── STILI GLOBALI ─────────────────────────────────────────────────
 const GS = {
   header: { background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: 500 },
@@ -56,7 +51,6 @@ const GS = {
   sectionLabel: { fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '18px 0 8px' },
 };
 
-// ── APP NAME ───────────────────────────────────────────────────────
 function AppName({ size = 'md' }) {
   const big = size === 'lg' ? 20 : 16;
   const small = size === 'lg' ? 14 : 11;
@@ -70,17 +64,15 @@ function AppName({ size = 'md' }) {
   );
 }
 
-// ── LOGO TRIANGOLO ────────────────────────────────────────────────
-function Logo({ size = 60, bg = 'rgba(255,255,255,0.12)' }) {
+function Logo({ size = 60 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 60 60">
-      <rect width="60" height="60" rx="13" fill={bg} />
+      <rect width="60" height="60" rx="13" fill="rgba(255,255,255,0.12)" />
       <polygon points="30,11 53,49 7,49" fill="none" stroke="white" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
 
-// ── BOTTOM NAV ────────────────────────────────────────────────────
 function BottomNav({ active, onHome, onNew, onArchive }) {
   const btn = (label, icon, isActive, onClick) => (
     <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
@@ -97,7 +89,6 @@ function BottomNav({ active, onHome, onNew, onArchive }) {
   );
 }
 
-// ── SIGNATURE CANVAS (fullscreen, scroll bloccato) ─────────────────
 function SignatureOverlay({ title, onConfirm, onCancel }) {
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
@@ -131,13 +122,7 @@ function SignatureOverlay({ title, onConfirm, onCancel }) {
     return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
   };
 
-  const startDraw = (e) => {
-    e.preventDefault();
-    isDrawing.current = true;
-    const canvas = canvasRef.current;
-    lastPos.current = getPos(e, canvas);
-  };
-
+  const startDraw = (e) => { e.preventDefault(); isDrawing.current = true; lastPos.current = getPos(e, canvasRef.current); };
   const draw = (e) => {
     e.preventDefault();
     if (!isDrawing.current) return;
@@ -150,20 +135,9 @@ function SignatureOverlay({ title, onConfirm, onCancel }) {
     ctx.stroke();
     lastPos.current = pos;
   };
-
   const stopDraw = (e) => { e.preventDefault(); isDrawing.current = false; };
-
-  const clear = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
-  };
-
-  const confirm = () => {
-    const canvas = canvasRef.current;
-    const dataURL = canvas.toDataURL('image/png');
-    onConfirm(dataURL);
-  };
+  const clear = () => { const canvas = canvasRef.current; canvas.getContext('2d').clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight); };
+  const confirm = () => { onConfirm(canvasRef.current.toDataURL('image/png')); };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
@@ -187,9 +161,6 @@ function SignatureOverlay({ title, onConfirm, onCancel }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: SPLASH
-// ═══════════════════════════════════════════════════════════════════
 function SplashScreen({ onDone }) {
   useEffect(() => { setTimeout(onDone, 1800); }, []);
   return (
@@ -200,16 +171,10 @@ function SplashScreen({ onDone }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: LOGIN (PIN)
-// ═══════════════════════════════════════════════════════════════════
 function LoginScreen({ onLogin, onFirstAccess }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const addDigit = (d) => { if (pin.length < 6) setPin(p => p + d); };
-  const delDigit = () => setPin(p => p.slice(0, -1));
 
   const handleLogin = async () => {
     if (pin.length < 6) return;
@@ -229,7 +194,6 @@ function LoginScreen({ onLogin, onFirstAccess }) {
   const dots = Array(6).fill(0).map((_, i) => (
     <div key={i} style={{ width: 13, height: 13, borderRadius: '50%', background: i < pin.length ? GREEN : '#ddd' }} />
   ));
-
   const numPad = [1,2,3,4,5,6,7,8,9,'',0,'⌫'];
 
   return (
@@ -245,12 +209,8 @@ function LoginScreen({ onLogin, onFirstAccess }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 280, margin: '0 auto 20px' }}>
           {numPad.map((n, i) => {
             if (n === '') return <div key={i} />;
-            if (n === '⌫') return (
-              <button key={i} onClick={delDigit} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#f0f0f0', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>⌫</button>
-            );
-            return (
-              <button key={i} onClick={() => addDigit(String(n))} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#fff', fontSize: 20, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>
-            );
+            if (n === '⌫') return <button key={i} onClick={() => setPin(p => p.slice(0,-1))} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#f0f0f0', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>⌫</button>;
+            return <button key={i} onClick={() => { if(pin.length < 6) setPin(p => p + String(n)); }} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#fff', fontSize: 20, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>;
           })}
         </div>
         {loading && <p style={{ textAlign: 'center', color: GREEN, fontSize: 13 }}>Accesso in corso…</p>}
@@ -260,12 +220,9 @@ function LoginScreen({ onLogin, onFirstAccess }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: PRIMO ACCESSO
-// ═══════════════════════════════════════════════════════════════════
 function FirstAccessScreen({ onBack, onPinRevealed }) {
   const [name, setName] = useState('');
-  const [step, setStep] = useState('search'); // search | pin | confirm
+  const [step, setStep] = useState('search');
   const [collabData, setCollabData] = useState(null);
   const [pinInput, setPinInput] = useState('');
   const [error, setError] = useState('');
@@ -277,8 +234,8 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     try {
       const c = await sb();
       const { data } = await c.from('report_collaborators').select('*').ilike('agent_name', `%${name.trim()}%`).eq('is_active', true);
-      if (!data || data.length === 0) { setError('Nessun collaboratore trovato con questo nome. Contatta l\'ufficio.'); setLoading(false); return; }
-      if (data.length > 1) { setError('Più collaboratori trovati con questo nome. Contatta l\'ufficio per il tuo PIN.'); setLoading(false); return; }
+      if (!data || data.length === 0) { setError('Nessun collaboratore trovato. Verifica di scrivere COGNOME in maiuscolo seguito dal Nome, esattamente come sei registrato in azienda.'); setLoading(false); return; }
+      if (data.length > 1) { setError('Trovati più collaboratori con questo nome. Aggiungi più lettere per precisare la ricerca, oppure contatta l\'ufficio.'); setLoading(false); return; }
       const collab = data[0];
       if (collab.pin_revealed) { setError('Il PIN per questo account è già stato visualizzato. Contatta l\'ufficio se hai dimenticato il PIN.'); setLoading(false); return; }
       setCollabData(collab);
@@ -288,7 +245,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     setLoading(false);
   };
 
-  const confirmPin = async () => {
+  const confirmPin = () => {
     if (pinInput !== collabData.pin) { setError('PIN errato. Riprova.'); return; }
     setStep('confirm');
   };
@@ -334,7 +291,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
             {numPad.map((n, i) => {
               if (n === '') return <div key={i} />;
               if (n === '⌫') return <button key={i} onClick={() => setPinInput(p => p.slice(0,-1))} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#f0f0f0', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>⌫</button>;
-              return <button key={i} onClick={() => { if(pinInput.length < 6) setPinInput(p => p + n); }} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#fff', fontSize: 20, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>;
+              return <button key={i} onClick={() => { if(pinInput.length < 6) setPinInput(p => p + String(n)); }} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#fff', fontSize: 20, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>;
             })}
           </div>
           <button onClick={confirmPin} disabled={pinInput.length < 6} style={{ ...GS.btnGreen, opacity: pinInput.length < 6 ? 0.5 : 1 }}>Conferma</button>
@@ -343,6 +300,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     );
   }
 
+  // FIX 1: istruzioni chiare per formato maiuscolo
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -351,10 +309,21 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
       </div>
       <div style={{ padding: '24px' }}>
         <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 6, color: '#111' }}>Primo accesso</h2>
-        <p style={{ color: '#666', fontSize: 13, marginBottom: 20 }}>Inserisci il tuo Cognome e Nome come registrato in azienda.</p>
+        <div style={{ background: '#fff7e6', border: '1px solid #f0c070', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: '#7a5000', fontWeight: 500, marginBottom: 4 }}>📋 Come scrivere il tuo nome:</p>
+          <p style={{ fontSize: 13, color: '#7a5000' }}>Scrivi <strong>COGNOME in MAIUSCOLO</strong> seguito dal Nome con iniziale maiuscola.</p>
+          <p style={{ fontSize: 12, color: '#999', marginTop: 6 }}>Esempio: <strong>MANASSERI Paolo</strong></p>
+        </div>
         <div style={{ marginBottom: 10 }}>
           <div style={GS.label}>Cognome e Nome</div>
-          <input style={GS.input} value={name} onChange={e => setName(e.target.value)} placeholder="Es. STEFANONI Marco" onKeyDown={e => e.key === 'Enter' && searchName()} />
+          <input
+            style={GS.input}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Es. STEFANONI Marco"
+            onKeyDown={e => e.key === 'Enter' && searchName()}
+            autoCapitalize="words"
+          />
         </div>
         {error && <div style={{ background: '#fcebeb', color: '#a32d2d', padding: '10px 14px', borderRadius: 9, fontSize: 13, marginBottom: 14 }}>{error}</div>}
         <button onClick={searchName} disabled={loading || !name.trim()} style={{ ...GS.btnGreen, opacity: loading || !name.trim() ? 0.5 : 1, marginBottom: 10 }}>
@@ -366,15 +335,11 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: REGOLAMENTO
-// ═══════════════════════════════════════════════════════════════════
 function RegulationScreen({ collab, onAccepted }) {
   const [scrolled, setScrolled] = useState(false);
   const [checked, setChecked] = useState(false);
   const [regulation, setRegulation] = useState('Caricamento regolamento…');
   const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
 
   useEffect(() => {
     sb().then(c => c.from('report_regulations').select('content').order('version', { ascending: false }).limit(1).single()).then(({ data }) => {
@@ -404,7 +369,7 @@ function RegulationScreen({ collab, onAccepted }) {
       <div style={{ padding: '16px 16px 0', color: '#555', fontSize: 13 }}>
         <strong style={{ color: '#111' }}>Prima di continuare, leggi e accetta il regolamento.</strong> Scorri fino in fondo per abilitare il pulsante.
       </div>
-      <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflow: 'auto', margin: 16, background: '#fff', borderRadius: 12, padding: '16px', border: '0.5px solid #e0e0e0', fontSize: 13, color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxHeight: 'calc(100vh - 260px)' }}>
+      <div onScroll={handleScroll} style={{ flex: 1, overflow: 'auto', margin: 16, background: '#fff', borderRadius: 12, padding: '16px', border: '0.5px solid #e0e0e0', fontSize: 13, color: '#333', lineHeight: 1.7, whiteSpace: 'pre-wrap', maxHeight: 'calc(100vh - 260px)' }}>
         {regulation}
       </div>
       <div style={{ padding: '0 16px 16px', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
@@ -423,9 +388,6 @@ function RegulationScreen({ collab, onAccepted }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: HOME
-// ═══════════════════════════════════════════════════════════════════
 function HomeScreen({ collab, onNew, onArchive, onLogout }) {
   const [recent, setRecent] = useState([]);
 
@@ -444,12 +406,10 @@ function HomeScreen({ collab, onNew, onArchive, onLogout }) {
         </div>
         <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, color: '#fff', padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Esci</button>
       </div>
-
       <div style={{ padding: '16px 16px 0' }}>
         <button onClick={onNew} style={{ ...GS.btnGreen, marginBottom: 20, fontSize: 16, padding: 17 }}>
           <span style={{ fontSize: 22 }}>📋</span> Nuovo Rapporto
         </button>
-
         <div style={GS.sectionLabel}>Ultimi rapporti inviati</div>
         {recent.length === 0 && <p style={{ color: '#888', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>Nessun rapporto ancora inviato.</p>}
         {recent.map(r => (
@@ -466,15 +426,11 @@ function HomeScreen({ collab, onNew, onArchive, onLogout }) {
         ))}
         {recent.length > 0 && <button onClick={onArchive} style={{ ...GS.btnGray, marginTop: 4 }}>Vedi archivio completo →</button>}
       </div>
-
       <BottomNav active="home" onHome={() => {}} onNew={onNew} onArchive={onArchive} />
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: SCELTA TIPO RAPPORTO
-// ═══════════════════════════════════════════════════════════════════
 function ReportTypeScreen({ onBack, onSelect }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
@@ -483,14 +439,14 @@ function ReportTypeScreen({ onBack, onSelect }) {
         <span style={GS.headerTitle}>Nuovo Rapporto</span>
       </div>
       <div style={{ padding: 20 }}>
-        <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto da compilare:</p>
+        <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto:</p>
         <div onClick={() => onSelect('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `1.5px solid ${GREEN}`, marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📋</div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: GREEN, fontWeight: 500, marginBottom: 4 }}>PDF – Con firma cliente</div>
-              <div style={{ fontSize: 12, color: '#777' }}>Genera un rapporto in formato PDF con firma digitale del cliente.</div>
+              <div style={{ fontSize: 12, color: '#777' }}>Rapporto con firma digitale del cliente.</div>
             </div>
           </div>
         </div>
@@ -500,7 +456,7 @@ function ReportTypeScreen({ onBack, onSelect }) {
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: '#555', fontWeight: 500, marginBottom: 4 }}>Solo testo · Nessuna firma cliente</div>
-              <div style={{ fontSize: 12, color: '#777' }}>Comunicazione del servizio svolto senza firma del cliente.</div>
+              <div style={{ fontSize: 12, color: '#777' }}>Senza firma del cliente.</div>
             </div>
           </div>
         </div>
@@ -509,9 +465,6 @@ function ReportTypeScreen({ onBack, onSelect }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: FORM RAPPORTO
-// ═══════════════════════════════════════════════════════════════════
 function ReportFormScreen({ collab, reportType, onBack, onNext }) {
   const [agents, setAgents] = useState([]);
   const [allAgents, setAllAgents] = useState([]);
@@ -552,20 +505,14 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
     <div style={{ ...GS.body, paddingBottom: 20 }}>
       <div style={GS.header}>
         <button onClick={onBack} style={GS.backBtn}>←</button>
-        <span style={GS.headerTitle}>
-          {reportType === 'pdf_firma' ? 'Rapporto PDF – Firma cliente' : 'Rapporto Solo testo'}
-        </span>
+        <span style={GS.headerTitle}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
       </div>
-
       <div style={{ padding: 16 }}>
-        {/* Data */}
         <div style={GS.card}>
           <div style={GS.label}>Data servizio *</div>
           <input style={{ ...GS.input, borderColor: errors.serviceDate ? '#e24b4a' : '#ccc' }} type="date" value={form.serviceDate ? toISO(form.serviceDate) : ''} onChange={e => upd('serviceDate', fromISO(e.target.value))} />
           {errors.serviceDate && <div style={{ color: '#e24b4a', fontSize: 11, marginTop: 3 }}>{errors.serviceDate}</div>}
         </div>
-
-        {/* Agenti */}
         <div style={GS.card}>
           <div style={GS.label}>Agenti *</div>
           {agents.map(ag => (
@@ -588,8 +535,6 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
             </div>
           )}
         </div>
-
-        {/* Cliente, Luogo, Indirizzo */}
         <div style={GS.card}>
           <div style={{ marginBottom: 12 }}>
             <div style={GS.label}>Cliente *</div>
@@ -607,48 +552,40 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
             {errors.address && <div style={{ color: '#e24b4a', fontSize: 11, marginTop: 3 }}>{errors.address}</div>}
           </div>
         </div>
-
-        {/* Orari */}
         <div style={GS.card}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: form.hasBreak ? 14 : 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <div style={GS.label}>Inizio servizio *</div>
+              <div style={GS.label}>Inizio *</div>
               <input style={{ ...GS.input, borderColor: errors.startTime ? '#e24b4a' : '#ccc' }} type="time" value={form.startTime} onChange={e => upd('startTime', e.target.value)} />
               {errors.startTime && <div style={{ color: '#e24b4a', fontSize: 11, marginTop: 3 }}>{errors.startTime}</div>}
             </div>
             <div>
-              <div style={GS.label}>Fine servizio *</div>
+              <div style={GS.label}>Fine *</div>
               <input style={{ ...GS.input, borderColor: errors.endTime ? '#e24b4a' : '#ccc' }} type="time" value={form.endTime} onChange={e => upd('endTime', e.target.value)} />
               {errors.endTime && <div style={{ color: '#e24b4a', fontSize: 11, marginTop: 3 }}>{errors.endTime}</div>}
             </div>
           </div>
-
-          <div style={{ borderTop: form.hasBreak ? '0.5px solid #eee' : 'none', paddingTop: form.hasBreak ? 14 : 0 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.hasBreak} onChange={e => upd('hasBreak', e.target.checked)} style={{ width: 18, height: 18, accentColor: GREEN }} />
-              <span style={{ fontSize: 14, fontWeight: 500 }}>Pausa effettuata</span>
-            </label>
-            {form.hasBreak && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={GS.label}>Coperta da (nome agente)</div>
-                  <input style={GS.input} value={form.breakCoveredBy} onChange={e => upd('breakCoveredBy', e.target.value)} placeholder="Nome agente" />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div><div style={GS.label}>Inizio pausa</div><input style={GS.input} type="time" value={form.breakStart} onChange={e => upd('breakStart', e.target.value)} /></div>
-                  <div><div style={GS.label}>Fine pausa</div><input style={GS.input} type="time" value={form.breakEnd} onChange={e => upd('breakEnd', e.target.value)} /></div>
-                </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.hasBreak} onChange={e => upd('hasBreak', e.target.checked)} style={{ width: 18, height: 18, accentColor: GREEN }} />
+            <span style={{ fontSize: 14, fontWeight: 500 }}>Pausa effettuata</span>
+          </label>
+          {form.hasBreak && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ marginBottom: 10 }}>
+                <div style={GS.label}>Coperta da (nome agente)</div>
+                <input style={GS.input} value={form.breakCoveredBy} onChange={e => upd('breakCoveredBy', e.target.value)} placeholder="Nome agente" />
               </div>
-            )}
-          </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div><div style={GS.label}>Inizio pausa</div><input style={GS.input} type="time" value={form.breakStart} onChange={e => upd('breakStart', e.target.value)} /></div>
+                <div><div style={GS.label}>Fine pausa</div><input style={GS.input} type="time" value={form.breakEnd} onChange={e => upd('breakEnd', e.target.value)} /></div>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Osservazioni */}
         <div style={GS.card}>
           <div style={GS.label}>Osservazioni</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
         </div>
-
         <button onClick={() => { if (validate()) onNext({ form, agents }); }} style={GS.btnGreen}>
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
@@ -657,54 +594,48 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: ANTEPRIMA + FIRMA
-// ═══════════════════════════════════════════════════════════════════
 function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onSubmit }) {
   const { form, agents } = formData;
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
   const [clientSignerName, setClientSignerName] = useState('');
-  const [showSigOverlay, setShowSigOverlay] = useState(null); // 'agent' | 'client'
+  const [showSigOverlay, setShowSigOverlay] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit = reportType === 'pdf_firma'
-    ? agentSig && clientSig && clientSignerName.trim()
-    : agentSig;
+  const canSubmit = reportType === 'pdf_firma' ? agentSig && clientSig && clientSignerName.trim() : agentSig;
 
+  // FIX 2: next_report_number chiamato una sola volta
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true); setError('');
     try {
       const c = await sb();
       const svcDateISO = toISO(form.serviceDate);
-      const { data: rpt, error: err } = await c.rpc('next_report_number').then(async () => {
-        const { data: num } = await c.rpc('next_report_number');
-        return c.from('dr_reports').insert({
-          report_number: num,
-          report_type: reportType,
-          service_date: svcDateISO,
-          is_late: isLate(svcDateISO),
-          submitted_by_id: collab.id,
-          submitted_by_name: collab.agent_name,
-          agents_json: agents.map(a => ({ id: a.id, name: a.agent_name })),
-          client_name: form.clientName,
-          location: form.location,
-          address: form.address,
-          start_time: form.startTime,
-          end_time: form.endTime,
-          has_break: form.hasBreak,
-          break_covered_by: form.breakCoveredBy || null,
-          break_start: form.breakStart || null,
-          break_end: form.breakEnd || null,
-          notes: form.notes || null,
-          agent_signature: agentSig,
-          client_signature: reportType === 'pdf_firma' ? clientSig : null,
-          client_signer_name: reportType === 'pdf_firma' ? clientSignerName : null,
-          status: 'submitted',
-        }).select().single();
-      });
+      const { data: num } = await c.rpc('next_report_number');
+      const { data: rpt, error: err } = await c.from('dr_reports').insert({
+        report_number: num,
+        report_type: reportType,
+        service_date: svcDateISO,
+        is_late: isLate(svcDateISO),
+        submitted_by_id: collab.id,
+        submitted_by_name: collab.agent_name,
+        agents_json: agents.map(a => ({ id: a.id, name: a.agent_name })),
+        client_name: form.clientName,
+        location: form.location,
+        address: form.address,
+        start_time: form.startTime,
+        end_time: form.endTime,
+        has_break: form.hasBreak,
+        break_covered_by: form.breakCoveredBy || null,
+        break_start: form.breakStart || null,
+        break_end: form.breakEnd || null,
+        notes: form.notes || null,
+        agent_signature: agentSig,
+        client_signature: reportType === 'pdf_firma' ? clientSig : null,
+        client_signer_name: reportType === 'pdf_firma' ? clientSignerName : null,
+        status: 'submitted',
+      }).select().single();
       if (err) throw err;
       onSubmit(rpt);
     } catch (e) { setError('Errore durante l\'invio. Riprova.'); console.error(e); }
@@ -723,22 +654,15 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
       {showSigOverlay && (
         <SignatureOverlay
           title={showSigOverlay === 'agent' ? 'Firma Agente' : 'Firma Cliente'}
-          onConfirm={(dataURL) => {
-            if (showSigOverlay === 'agent') setAgentSig(dataURL);
-            else setClientSig(dataURL);
-            setShowSigOverlay(null);
-          }}
+          onConfirm={(dataURL) => { if (showSigOverlay === 'agent') setAgentSig(dataURL); else setClientSig(dataURL); setShowSigOverlay(null); }}
           onCancel={() => setShowSigOverlay(null)}
         />
       )}
-
       <div style={GS.header}>
         <button onClick={onBack} style={GS.backBtn}>←</button>
         <span style={GS.headerTitle}>Anteprima</span>
       </div>
-
       <div style={{ padding: 16 }}>
-        {/* Riepilogo rapporto */}
         <div style={{ ...GS.card, background: '#fafafa' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 10, borderBottom: '0.5px solid #eee' }}>
             <div>
@@ -764,8 +688,6 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
             </span>
           </div>
         </div>
-
-        {/* Firma agente */}
         <div style={GS.card}>
           <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 10 }}>Firma Agente</div>
           {agentSig
@@ -776,8 +698,6 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
             : <button onClick={() => setShowSigOverlay('agent')} style={{ width: '100%', height: 80, border: '1.5px dashed #ccc', borderRadius: 9, background: '#fafafa', cursor: 'pointer', color: '#888', fontSize: 13, fontFamily: 'inherit' }}>Tocca per firmare</button>
           }
         </div>
-
-        {/* Firma cliente (solo pdf_firma) */}
         {reportType === 'pdf_firma' && (
           <div style={{ ...GS.card, border: `1px solid ${GREEN}33` }}>
             <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 10 }}>Firma Cliente</div>
@@ -795,23 +715,18 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
             <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 6 }}>Con la firma si conferma l'impiego svolto e l'esattezza dei dati</div>
           </div>
         )}
-
         {error && <div style={{ background: '#fcebeb', color: '#a32d2d', padding: '10px 14px', borderRadius: 9, fontSize: 13, marginBottom: 12 }}>{error}</div>}
-
         <button onClick={handleSubmit} disabled={!canSubmit || submitting} style={{ ...GS.btnGreen, opacity: !canSubmit || submitting ? 0.5 : 1 }}>
           {submitting ? 'Invio in corso…' : '📤 Invia Rapporto'}
         </button>
         {!canSubmit && <p style={{ fontSize: 11, color: '#888', textAlign: 'center', marginTop: 8 }}>
-          {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome prima di inviare.' : 'Completa la firma agente prima di inviare.'}
+          {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome.' : 'Completa la firma agente.'}
         </p>}
       </div>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: SUCCESSO INVIO
-// ═══════════════════════════════════════════════════════════════════
 function SuccessScreen({ report, onHome, onArchive }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -828,9 +743,7 @@ function SuccessScreen({ report, onHome, onArchive }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// SCHERMATA: ARCHIVIO
-// ═══════════════════════════════════════════════════════════════════
+// FIX 3: r.end_time corretto
 function ArchiveScreen({ collab, onBack, onHome, onNew }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -838,13 +751,12 @@ function ArchiveScreen({ collab, onBack, onHome, onNew }) {
   useEffect(() => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    sb().then(c => c.from('dr_reports').select('id,report_number,service_date,client_name,address,location,start_time,end_time,report_type,submitted_at').eq('submitted_by_id', collab.id).gte('service_date', threeMonthsAgo.toISOString().split('T')[0]).order('service_date', { ascending: false })).then(({ data }) => {
+    sb().then(c => c.from('dr_reports').select('id,report_number,service_date,client_name,address,location,start_time,end_time,report_type').eq('submitted_by_id', collab.id).gte('service_date', threeMonthsAgo.toISOString().split('T')[0]).order('service_date', { ascending: false })).then(({ data }) => {
       if (data) setReports(data);
       setLoading(false);
     });
   }, []);
 
-  // Raggruppa per mese
   const grouped = {};
   reports.forEach(r => {
     const d = new Date(r.service_date + 'T12:00:00');
@@ -871,7 +783,9 @@ function ArchiveScreen({ collab, onBack, onHome, onNew }) {
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{r.client_name}</div>
                   <div style={{ fontSize: 11, color: '#999' }}>{fromISO(r.service_date)}</div>
                 </div>
-                <div style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>{r.address} · {r.start_time && r.endTime ? `${r.start_time}–${r.end_time}` : r.start_time || ''}</div>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 5 }}>
+                  {r.address}{r.start_time && r.end_time ? ` · ${r.start_time}–${r.end_time}` : r.start_time ? ` · ${r.start_time}` : ''}
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 10, color: '#999' }}>{r.report_number}</span>
                   <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, fontWeight: 500, background: r.report_type === 'pdf_firma' ? GREEN_LIGHT : '#f0f0f0', color: r.report_type === 'pdf_firma' ? '#1a5c1a' : '#555' }}>
@@ -889,9 +803,6 @@ function ArchiveScreen({ collab, onBack, onHome, onNew }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// APP ROOT
-// ═══════════════════════════════════════════════════════════════════
 export default function App() {
   const [screen, setScreen] = useState('splash');
   const [collab, setCollab] = useState(null);
@@ -900,18 +811,14 @@ export default function App() {
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
 
-  // Check sessione esistente
   useEffect(() => {
     const session = getSession();
     if (session) {
       sb().then(c => c.from('report_collaborators').select('*').eq('id', session.collabId).eq('is_active', true).single()).then(({ data }) => {
         if (data) {
           setCollab(data);
-          if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) {
-            setScreen('regulation');
-          } else {
-            setScreen('home');
-          }
+          if (!data.regulation_accepted || data.regulation_version < REGULATION_VERSION) setScreen('regulation');
+          else setScreen('home');
         } else {
           clearSession();
           setScreen('login');
@@ -928,7 +835,6 @@ export default function App() {
 
   const handleLogout = () => { clearSession(); setCollab(null); setScreen('login'); };
 
-  // Pre-fetch report number on form entry
   const handleFormNext = async (fd) => {
     setFormData(fd);
     const c = await sb();
@@ -938,7 +844,6 @@ export default function App() {
   };
 
   const handleSubmitted = (rpt) => { setSubmittedReport(rpt); setScreen('success'); };
-
   const goHome = () => setScreen('home');
   const goArchive = () => setScreen('archive');
   const goNew = () => setScreen('type');
@@ -954,6 +859,5 @@ export default function App() {
   if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onBack={() => setScreen('form')} onSubmit={handleSubmitted} />;
   if (screen === 'success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'archive') return <ArchiveScreen collab={collab} onBack={goHome} onHome={goHome} onNew={goNew} />;
-
   return null;
 }
