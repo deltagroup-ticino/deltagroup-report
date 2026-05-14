@@ -424,36 +424,86 @@ function RegulationScreen({ collab, onAccepted }) {
 }
 
 function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
+  const [stats, setStats] = useState({ count: 0, lastDate: null, lastTime: null });
+
+  useEffect(() => {
+    const firstOfMonth = new Date(); firstOfMonth.setDate(1); firstOfMonth.setHours(0,0,0,0);
+    sb().then(c => c.from('dr_reports')
+      .select('id,submitted_at')
+      .eq('submitted_by_id', collab.id)
+      .gte('submitted_at', firstOfMonth.toISOString())
+      .order('submitted_at', { ascending: false })
+    ).then(({ data }) => {
+      if (data) {
+        const last = data[0] ? new Date(data[0].submitted_at) : null;
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+        const isToday = last && last.toDateString() === new Date().toDateString();
+        const isYesterday = last && last.toDateString() === yesterday.toDateString();
+        const dayLabel = !last ? null : isToday ? 'Oggi' : isYesterday ? 'Ieri' :
+          `${String(last.getDate()).padStart(2,'0')}/${String(last.getMonth()+1).padStart(2,'0')}`;
+        const timeLabel = last ? `${String(last.getHours()).padStart(2,'0')}:${String(last.getMinutes()).padStart(2,'0')}` : null;
+        setStats({ count: data.length, lastDate: dayLabel, lastTime: timeLabel });
+      }
+    });
+  }, []);
+
+  const now = new Date();
+  const days = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+  const months = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const dateStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  const firstName = collab.agent_name.split(' ').slice(-1)[0];
+  const firstName2 = collab.agent_name.includes(' ') ? collab.agent_name.split(' ').slice(1).join(' ') : collab.agent_name;
 
   return (
-    <div style={{ ...GS.body, paddingBottom: 70 }}>
-      <div style={{ background: GREEN, padding: '13px 16px' }}>
+    <div style={{ ...GS.body, paddingBottom: 80 }}>
+      <div style={{ background: GREEN, padding: '13px 16px 28px' }}>
         <AppName />
-        <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>{collab.agent_name}</div>
       </div>
-      <div style={{ padding: '20px 16px 0' }}>
-        <p style={{ color: '#888', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>Seleziona il tipo di rapporto da compilare:</p>
-        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 14, padding: '18px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 50, height: 50, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>📋</div>
-            <div>
-              <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 3 }}>Rapporto di Servizio</div>
-              <div style={{ fontSize: 13, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
+      <div style={{ padding: '0 14px 14px' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginTop: -16, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{dateStr}</div>
+          <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 14 }}>Ciao, {firstName2} 👋</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Questo mese</div>
+              <div style={{ fontSize: 24, fontWeight: 600, color: GREEN, lineHeight: 1 }}>{stats.count}</div>
+              <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>rapporti inviati</div>
+            </div>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ fontSize: 10, color: '#999', marginBottom: 3 }}>Ultimo invio</div>
+              {stats.lastDate
+                ? <><div style={{ fontSize: 15, fontWeight: 500, color: '#333', marginTop: 2 }}>{stats.lastDate}</div><div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>ore {stats.lastTime}</div></>
+                : <div style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>Nessuno</div>
+              }
             </div>
           </div>
         </div>
-        <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1.5px solid #ccc', padding: '18px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 50, height: 50, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, flexShrink: 0 }}>📝</div>
+
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>Nuovo rapporto</div>
+
+        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 10, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📋</div>
             <div>
-              <div style={{ fontWeight: 500, fontSize: 16, marginBottom: 3 }}>Rapporto di Servizio</div>
-              <div style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>Solo testo · Nessuna firma cliente</div>
+              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 2 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 12, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
             </div>
           </div>
         </div>
-      </div>
-      <div style={{ textAlign: 'center', padding: '14px 0 8px' }}>
-        <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ fontSize: 13, color: '#aaa', textDecoration: 'underline', fontFamily: 'inherit', touchAction: 'manipulation' }}>Esci dall'app</a>
+
+        <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', padding: '14px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 11, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📝</div>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 2 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 12, color: '#888', fontWeight: 500 }}>Solo testo · Nessuna firma</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', padding: '12px 0 6px' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ fontSize: 12, color: '#bbb', textDecoration: 'underline', fontFamily: 'inherit', touchAction: 'manipulation' }}>Esci dall'app</a>
+        </div>
       </div>
       <BottomNav active="home" onHome={() => {}} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
