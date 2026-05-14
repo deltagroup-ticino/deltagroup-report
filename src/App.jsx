@@ -47,7 +47,7 @@ const GS = {
   btnGreen: { width: '100%', padding: 15, background: GREEN, color: '#fff', border: 'none', borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' },
   btnOutline: { width: '100%', padding: 13, background: 'none', border: `1.5px solid ${GREEN}`, borderRadius: 11, fontSize: 15, fontWeight: 500, cursor: 'pointer', color: GREEN, fontFamily: 'inherit' },
   btnGray: { width: '100%', padding: 13, background: 'none', border: '0.5px solid #ccc', borderRadius: 11, fontSize: 14, cursor: 'pointer', color: '#555', fontFamily: 'inherit' },
-  backBtn: { background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  backBtn: { background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 44, height: 44, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20, WebkitTapHighlightColor: 'transparent' },
   sectionLabel: { fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '18px 0 8px' },
 };
 
