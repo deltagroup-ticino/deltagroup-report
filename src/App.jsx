@@ -764,7 +764,7 @@ function SuccessScreen({ report, onHome, onArchive }) {
 }
 
 // FIX 3: r.end_time corretto
-function ArchiveScreen({ collab, onHome, onNew }) {
+function ArchiveScreen({ collab, onHome }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -878,6 +878,6 @@ export default function App() {
   if (screen === 'form') return <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
   if (screen === 'success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
-  if (screen === 'archive') return <ArchiveScreen collab={collab} onHome={goHome} onNew={goNew} />;
+  if (screen === 'archive') return <ArchiveScreen collab={collab} onHome={goHome} />;
   return null;
 }
