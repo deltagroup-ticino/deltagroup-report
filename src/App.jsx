@@ -818,7 +818,7 @@ async function generateAndSharePDF(report) {
   }
 }
 
-function ReportDetailScreen({ report, onBack }) {
+function ReportDetailScreen({ report, onBack, onHome }) {
   const [generating, setGenerating] = useState(false);
   const handlePDF = async () => { setGenerating(true); try { await generateAndSharePDF(report); } catch(e){ alert('Errore PDF. Riprova.'); } setGenerating(false); };
   const Row = ({label, value}) => value ? (<div style={{marginBottom:10}}><div style={{fontSize:10,color:'#888',marginBottom:2,textTransform:'uppercase',letterSpacing:0.3}}>{label}</div><div style={{fontSize:14,color:'#111'}}>{value}</div></div>) : null;
@@ -826,10 +826,10 @@ function ReportDetailScreen({ report, onBack }) {
   const sentAt = report.submitted_at ? new Date(report.submitted_at) : null;
   const sentStr = sentAt ? String(sentAt.getDate()).padStart(2,'0')+'/'+String(sentAt.getMonth()+1).padStart(2,'0')+'/'+sentAt.getFullYear()+' alle '+String(sentAt.getHours()).padStart(2,'0')+':'+String(sentAt.getMinutes()).padStart(2,'0') : null;
   return (
-    <div style={{...GS.body, paddingBottom:90}}>
-      <div style={{background:GREEN,padding:'13px 16px',display:'flex',alignItems:'center',gap:10}}>
-        <BackBtn onClick={onBack} />
-        <div><AppName /><div style={{color:'rgba(255,255,255,0.7)',fontSize:11,marginTop:2}}>{report.report_number}</div></div>
+    <div style={{...GS.body, paddingBottom:70}}>
+      <div style={{background:GREEN,padding:'13px 16px'}}>
+        <AppName />
+        <div style={{color:'rgba(255,255,255,0.7)',fontSize:11,marginTop:2}}>{report.report_number}</div>
       </div>
       <div style={{padding:16}}>
         {sentStr && <div style={{background:GREEN_LIGHT,borderRadius:9,padding:'8px 13px',marginBottom:14,fontSize:12,color:'#1a5c1a'}}>📤 Inviato il {sentStr}</div>}
@@ -859,6 +859,7 @@ function ReportDetailScreen({ report, onBack }) {
           {generating?'Generazione PDF...':'📄 Visualizza / Condividi PDF'}
         </button>
       </div>
+      <BottomNav active="archive" onHome={onHome} onArchive={onBack} />
     </div>
   );
 }
@@ -963,6 +964,6 @@ export default function App() {
   if(screen==='preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} />;
   if(screen==='success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
   if(screen==='archive') return <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} />;
-  if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} />;
+  if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} onHome={goHome} />;
   return null;
 }
