@@ -455,55 +455,51 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
   const firstName2 = collab.agent_name.includes(' ') ? collab.agent_name.split(' ').slice(1).join(' ') : collab.agent_name;
 
   return (
-    <div style={{ ...GS.body, minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingBottom: 70 }}>
-      <div style={{ background: GREEN, padding: '13px 16px 32px' }}>
+    <div style={{ ...GS.body, minHeight: '100vh', paddingBottom: 70 }}>
+      <div style={{ background: GREEN, padding: '13px 16px 30px' }}>
         <AppName />
       </div>
-      <div style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: -18, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 28 }}>
-            <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{dateStr}</div>
-            <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 16 }}>Ciao, {firstName2} 👋</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '14px' }}>
-                <div style={{ fontSize: 10, color: '#999', marginBottom: 4 }}>Questo mese</div>
-                <div style={{ fontSize: 26, fontWeight: 600, color: GREEN, lineHeight: 1 }}>{stats.count}</div>
-                <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>rapporti inviati</div>
-              </div>
-              <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '14px' }}>
-                <div style={{ fontSize: 10, color: '#999', marginBottom: 4 }}>Ultimo invio</div>
-                {stats.lastDate
-                  ? <><div style={{ fontSize: 16, fontWeight: 500, color: '#333', marginTop: 2 }}>{stats.lastDate}</div><div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>ore {stats.lastTime}</div></>
-                  : <div style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>Nessuno</div>
-                }
-              </div>
+      <div style={{ padding: '0 16px' }}>
+        <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: -16, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 36 }}>
+          <div style={{ fontSize: 11, color: '#aaa', marginBottom: 4 }}>{dateStr}</div>
+          <div style={{ fontSize: 19, fontWeight: 500, color: '#111', marginBottom: 16 }}>Ciao, {firstName2} 👋</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '14px' }}>
+              <div style={{ fontSize: 10, color: '#999', marginBottom: 4 }}>Questo mese</div>
+              <div style={{ fontSize: 26, fontWeight: 600, color: GREEN, lineHeight: 1 }}>{stats.count}</div>
+              <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>rapporti inviati</div>
+            </div>
+            <div style={{ background: '#f7f7f7', borderRadius: 10, padding: '14px' }}>
+              <div style={{ fontSize: 10, color: '#999', marginBottom: 4 }}>Ultimo invio</div>
+              {stats.lastDate
+                ? <><div style={{ fontSize: 16, fontWeight: 500, color: '#333', marginTop: 2 }}>{stats.lastDate}</div><div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>ore {stats.lastTime}</div></>
+                : <div style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>Nessuno</div>
+              }
             </div>
           </div>
         </div>
 
-        <div style={{ paddingBottom: 16 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Nuovo rapporto</div>
-          <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 12, padding: '18px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📋</div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
-                <div style={{ fontSize: 13, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
-              </div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Nuovo rapporto</div>
+        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 12, padding: '18px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📋</div>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 13, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
             </div>
           </div>
-          <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', padding: '18px 16px', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📝</div>
-              <div>
-                <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
-                <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Solo testo · Nessuna firma</div>
-              </div>
+        </div>
+        <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', padding: '18px 16px', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📝</div>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
+              <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Solo testo · Nessuna firma</div>
             </div>
           </div>
-          <div style={{ textAlign: 'center', paddingBottom: 8 }}>
-            <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ fontSize: 12, color: '#bbb', textDecoration: 'underline', fontFamily: 'inherit', touchAction: 'manipulation' }}>Esci dall'app</a>
-          </div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ fontSize: 12, color: '#bbb', textDecoration: 'underline', fontFamily: 'inherit', touchAction: 'manipulation' }}>Esci dall'app</a>
         </div>
       </div>
       <BottomNav active="home" onHome={() => {}} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
