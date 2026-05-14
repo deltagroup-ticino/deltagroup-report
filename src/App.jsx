@@ -201,7 +201,7 @@ function LoginScreen({ onLogin, onFirstAccess }) {
       const c = await sb();
       const { data } = await c.from('report_collaborators').select('*').eq('pin', pin).eq('is_active', true).single();
       if (!data) { setError('PIN non riconosciuto. Riprova.'); setPin(''); setLoading(false); return; }
-      if (!data.pin_revealed) { setError('Accesso non completato. Usa "Primo accesso".'); setPin(''); setLoading(false); return; }
+      if (!data.pin_revealed) { setError('PIN reimpostato. Premi "Primo accesso" per ottenere il nuovo PIN.'); setPin(''); setLoading(false); return; }
       saveSession({ collabId: data.id, collabName: data.agent_name, regulationVersion: data.regulation_version });
       onLogin(data);
     } catch { setError('Errore di connessione. Riprova.'); setLoading(false); }
@@ -286,10 +286,6 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   }
 
   if (step === 'pin') {
-    const dots = Array(6).fill(0).map((_, i) => (
-      <div key={i} style={{ width: 13, height: 13, borderRadius: '50%', background: i < pinInput.length ? GREEN : '#ddd' }} />
-    ));
-    const numPad = [1,2,3,4,5,6,7,8,9,'',0,'⌫'];
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -297,22 +293,18 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
           <AppName />
         </div>
         <div style={{ padding: '24px' }}>
-          <div style={{ background: GREEN_LIGHT, borderRadius: 12, padding: '16px 18px', marginBottom: 24, border: `1px solid ${GREEN}33` }}>
-            <p style={{ color: '#1a5c1a', fontSize: 13, fontWeight: 500, marginBottom: 4 }}>Il tuo PIN è:</p>
-            <p style={{ color: GREEN, fontSize: 36, fontWeight: 700, letterSpacing: 8, margin: '8px 0' }}>{collabData.pin}</p>
-            <p style={{ color: '#555', fontSize: 12 }}>⚠️ Annotalo subito — non verrà mostrato di nuovo.</p>
+          <h2 style={{ fontSize: 17, fontWeight: 500, marginBottom: 16, color: '#111' }}>Il tuo PIN personale</h2>
+          <div style={{ background: GREEN_LIGHT, borderRadius: 14, padding: '24px 20px', marginBottom: 20, border: `1.5px solid ${GREEN}44`, textAlign: 'center' }}>
+            <p style={{ color: '#1a5c1a', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Il tuo PIN è:</p>
+            <p style={{ color: GREEN, fontSize: 48, fontWeight: 700, letterSpacing: 12, margin: '0 0 16px' }}>{collabData.pin}</p>
+            <div style={{ background: '#fff', borderRadius: 9, padding: '10px 14px', border: '1px solid #c8e6c8' }}>
+              <p style={{ color: '#555', fontSize: 13, fontWeight: 500 }}>⚠️ Annotalo ora — non verrà più mostrato</p>
+              <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Usalo ad ogni accesso all'app</p>
+            </div>
           </div>
-          <p style={{ textAlign: 'center', color: '#555', fontSize: 14, marginBottom: 18 }}>Inserisci il PIN per confermare</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 20 }}>{dots}</div>
-          {error && <div style={{ background: '#fcebeb', color: '#a32d2d', padding: '10px 14px', borderRadius: 9, fontSize: 13, textAlign: 'center', marginBottom: 14 }}>{error}</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, maxWidth: 280, margin: '0 auto 16px' }}>
-            {numPad.map((n, i) => {
-              if (n === '') return <div key={i} />;
-              if (n === '⌫') return <button key={i} onClick={() => setPinInput(p => p.slice(0,-1))} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#f0f0f0', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>⌫</button>;
-              return <button key={i} onClick={() => { if(pinInput.length < 6) setPinInput(p => p + String(n)); }} style={{ padding: 16, border: '0.5px solid #ddd', borderRadius: 12, background: '#fff', fontSize: 20, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>{n}</button>;
-            })}
-          </div>
-          <button onClick={confirmPin} disabled={pinInput.length < 6} style={{ ...GS.btnGreen, opacity: pinInput.length < 6 ? 0.5 : 1 }}>Conferma</button>
+          <button onClick={() => setStep('confirm')} style={{ ...GS.btnGreen }}>
+            Ho annotato il PIN — Continua
+          </button>
         </div>
       </div>
     );
