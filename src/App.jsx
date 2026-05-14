@@ -432,7 +432,7 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
           <AppName />
           <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>{collab.agent_name}</div>
         </div>
-        <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, color: '#fff', padding: '5px 10px', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>Esci</button>
+        <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, color: '#fff', padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', touchAction: 'manipulation', minHeight: 44 }}>Esci</button>
       </div>
       <div style={{ padding: '20px 16px 0' }}>
         <p style={{ color: '#888', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>Seleziona il tipo di rapporto da compilare:</p>
