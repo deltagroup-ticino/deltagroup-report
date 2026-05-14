@@ -427,12 +427,9 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
 
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
-      <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <AppName />
-          <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>{collab.agent_name}</div>
-        </div>
-        <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, color: '#fff', padding: '10px 16px', fontSize: 13, fontFamily: 'inherit', touchAction: 'manipulation', textDecoration: 'none', display: 'flex', alignItems: 'center', minHeight: 44 }}>Esci</a>
+      <div style={{ background: GREEN, padding: '13px 16px' }}>
+        <AppName />
+        <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>{collab.agent_name}</div>
       </div>
       <div style={{ padding: '20px 16px 0' }}>
         <p style={{ color: '#888', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>Seleziona il tipo di rapporto da compilare:</p>
@@ -454,6 +451,9 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
             </div>
           </div>
         </div>
+      </div>
+      <div style={{ textAlign: 'center', padding: '14px 0 8px' }}>
+        <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ fontSize: 13, color: '#aaa', textDecoration: 'underline', fontFamily: 'inherit', touchAction: 'manipulation' }}>Esci dall'app</a>
       </div>
       <BottomNav active="home" onHome={() => {}} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
     </div>
