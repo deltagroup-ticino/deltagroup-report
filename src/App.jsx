@@ -432,7 +432,7 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
           <AppName />
           <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>{collab.agent_name}</div>
         </div>
-        <button onClick={onLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, color: '#fff', padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', touchAction: 'manipulation', minHeight: 44 }}>Esci</button>
+        <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 8, color: '#fff', padding: '10px 16px', fontSize: 13, fontFamily: 'inherit', touchAction: 'manipulation', textDecoration: 'none', display: 'flex', alignItems: 'center', minHeight: 44 }}>Esci</a>
       </div>
       <div style={{ padding: '20px 16px 0' }}>
         <p style={{ color: '#888', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>Seleziona il tipo di rapporto da compilare:</p>
@@ -951,7 +951,14 @@ function RegolamentoReadScreen({ collab, onHome, onArchive, onRegolamento, hasNe
 
   useEffect(() => {
     sb().then(c => c.from('report_regulations').select('content,version').order('version', { ascending: false }).limit(1).single()).then(({ data }) => {
-      if (data) { setRegulation(data.content); onRead(data.version); }
+      if (data) {
+        setRegulation(data.content);
+        // Salva in Supabase che il collaboratore ha letto questa versione
+        if (data.version > (collab.regulation_version || 0)) {
+          sb().then(c2 => c2.from('report_collaborators').update({ regulation_version: data.version }).eq('id', collab.id));
+        }
+        onRead(data.version);
+      }
     });
   }, []);
 
@@ -1014,7 +1021,7 @@ export default function App() {
   if(screen==='preview') return <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   if(screen==='success') return <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
   if(screen==='archive') return <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
-  if(screen==='regolamento') return <RegolamentoReadScreen collab={collab} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={false} onRead={(v) => setLatestRegVersion(prev => Math.min(prev, v))} />;
+  if(screen==='regolamento') return <RegolamentoReadScreen collab={collab} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={false} onRead={(v) => { setCollab(c => ({...c, regulation_version: v})); }} />;
   if(screen==='reportDetail') return <ReportDetailScreen report={selectedReport} onBack={goArchive} onHome={goHome} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   return null;
 }
