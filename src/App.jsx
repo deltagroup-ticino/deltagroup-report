@@ -189,7 +189,7 @@ function SplashScreen({ onDone }) {
   );
 }
 
-function LoginScreen({ onLogin, onFirstAccess }) {
+function PinScreen({ onLogin, onBack }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -201,7 +201,7 @@ function LoginScreen({ onLogin, onFirstAccess }) {
       const c = await sb();
       const { data } = await c.from('report_collaborators').select('*').eq('pin', pin).eq('is_active', true).single();
       if (!data) { setError('PIN non riconosciuto. Riprova.'); setPin(''); setLoading(false); return; }
-      if (!data.pin_revealed) { setError('PIN reimpostato. Premi "Primo accesso" per ottenere il nuovo PIN.'); setPin(''); setLoading(false); return; }
+      if (!data.pin_revealed) { setError('PIN reimpostato. Torna indietro e usa "Primo accesso".'); setPin(''); setLoading(false); return; }
       saveSession({ collabId: data.id, collabName: data.agent_name, regulationVersion: data.regulation_version });
       onLogin(data);
     } catch { setError('Errore di connessione. Riprova.'); setLoading(false); }
@@ -216,9 +216,9 @@ function LoginScreen({ onLogin, onFirstAccess }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ background: GREEN, padding: '44px 24px 32px', textAlign: 'center' }}>
-        <Logo size={64} />
-        <div style={{ marginTop: 14 }}><AppName size="lg" /></div>
+      <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <BackBtn onClick={onBack} />
+        <AppName />
       </div>
       <div style={{ padding: '28px 24px' }}>
         <p style={{ textAlign: 'center', color: '#555', fontSize: 14, marginBottom: 20 }}>Inserisci il tuo PIN personale</p>
@@ -232,7 +232,30 @@ function LoginScreen({ onLogin, onFirstAccess }) {
           })}
         </div>
         {loading && <p style={{ textAlign: 'center', color: GREEN, fontSize: 13 }}>Accesso in corso…</p>}
-        <button onClick={onFirstAccess} style={{ ...GS.btnOutline, marginTop: 8 }}>Primo accesso</button>
+      </div>
+    </div>
+  );
+}
+
+function LoginScreen({ onLogin, onFirstAccess }) {
+  const [screen, setScreen] = useState('welcome');
+  if (screen === 'pin') return <PinScreen onLogin={onLogin} onBack={() => setScreen('welcome')} />;
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <div style={{ background: GREEN, padding: '50px 24px 40px', textAlign: 'center' }}>
+        <Logo size={70} />
+        <div style={{ marginTop: 16 }}><AppName size="lg" /></div>
+        <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 8 }}>Filiale Ticino</div>
+      </div>
+      <div style={{ padding: '32px 24px' }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '20px 18px', marginBottom: 20, border: '0.5px solid #e0e0e0', textAlign: 'center' }}>
+          <p style={{ fontSize: 15, color: '#333', fontWeight: 500, marginBottom: 6 }}>Benvenuto/a nell'app rapporti</p>
+          <p style={{ fontSize: 13, color: '#888', lineHeight: 1.5 }}>Compila e invia i tuoi rapporti di servizio direttamente dal tuo smartphone.</p>
+        </div>
+        <button onClick={() => setScreen('pin')} style={{ ...GS.btnGreen, marginBottom: 12, fontSize: 16, padding: 17 }}>
+          🔐 Accedi con PIN
+        </button>
+        <button onClick={onFirstAccess} style={{ ...GS.btnOutline }}>Primo accesso</button>
       </div>
     </div>
   );
@@ -271,8 +294,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   if (step === 'confirm') {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-        <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <BackBtn onClick={onBack} />
+        <div style={{ background: GREEN, padding: '13px 16px' }}>
           <AppName />
         </div>
         <div style={{ padding: '40px 24px', textAlign: 'center' }}>
@@ -288,8 +310,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   if (step === 'pin') {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-        <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <BackBtn onClick={onBack} />
+        <div style={{ background: GREEN, padding: '13px 16px' }}>
           <AppName />
         </div>
         <div style={{ padding: '24px' }}>
@@ -313,8 +334,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   // FIX 1: istruzioni chiare per formato maiuscolo
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <BackBtn onClick={onBack} />
+      <div style={{ background: GREEN, padding: '13px 16px' }}>
         <AppName />
       </div>
       <div style={{ padding: '24px' }}>
@@ -339,7 +359,8 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
         <button onClick={searchName} disabled={loading || !name.trim()} style={{ ...GS.btnGreen, opacity: loading || !name.trim() ? 0.5 : 1, marginBottom: 10 }}>
           {loading ? 'Ricerca in corso…' : 'Cerca'}
         </button>
-        <p style={{ fontSize: 12, color: '#888', textAlign: 'center' }}>Se hai già visualizzato il PIN, usa il login normale oppure contatta l'ufficio.</p>
+        <p style={{ fontSize: 12, color: '#888', textAlign: 'center', marginBottom: 16 }}>Se hai già visualizzato il PIN, usa il login normale oppure contatta l'ufficio.</p>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: GREEN, fontSize: 14, cursor: 'pointer', width: '100%', textAlign: 'center', padding: '8px', fontFamily: 'inherit', touchAction: 'manipulation' }}>← Torna al login</button>
       </div>
     </div>
   );
