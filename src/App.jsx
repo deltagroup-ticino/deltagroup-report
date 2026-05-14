@@ -683,11 +683,14 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
   const [clientSignerName, setClientSignerName] = useState('');
+  const [clientUnavailable, setClientUnavailable] = useState(false);
   const [showSigOverlay, setShowSigOverlay] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const canSubmit = reportType === 'pdf_firma' ? agentSig && clientSig && clientSignerName.trim() : agentSig;
+  const canSubmit = reportType === 'pdf_firma'
+    ? agentSig && (clientUnavailable || (clientSig && clientSignerName.trim()))
+    : agentSig;
 
   // FIX 2: next_report_number chiamato una sola volta
   const handleSubmit = async () => {
@@ -716,8 +719,9 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         break_end: form.breakEnd || null,
         notes: form.notes || null,
         agent_signature: agentSig,
-        client_signature: reportType === 'pdf_firma' ? clientSig : null,
-        client_signer_name: reportType === 'pdf_firma' ? clientSignerName : null,
+        client_signature: reportType === 'pdf_firma' && !clientUnavailable ? clientSig : null,
+        client_signer_name: reportType === 'pdf_firma' && !clientUnavailable ? clientSignerName : null,
+        client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
         status: 'submitted',
       }).select().single();
       if (err) throw err;
@@ -785,18 +789,26 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         {reportType === 'pdf_firma' && (
           <div style={{ ...GS.card, border: `1px solid ${GREEN}33` }}>
             <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 10 }}>Firma Cliente</div>
-            <div style={{ marginBottom: 10 }}>
-              <div style={GS.label}>Nome e Cognome in stampatello</div>
-              <input style={GS.input} value={clientSignerName} onChange={e => setClientSignerName(e.target.value.toUpperCase())} placeholder="Es. ROSSI MARIO" />
-            </div>
-            {clientSig
-              ? <div style={{ position: 'relative' }}>
-                  <img src={clientSig} style={{ width: '100%', height: 80, objectFit: 'contain', border: '0.5px solid #eee', borderRadius: 8 }} />
-                  <button onClick={() => { setClientSig(null); setShowSigOverlay('client'); }} style={{ position: 'absolute', top: 4, right: 4, background: '#fff', border: '0.5px solid #ddd', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 11 }}>Rifai</button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, cursor: 'pointer', padding: '10px 12px', background: clientUnavailable ? '#faeeda' : '#f9f9f9', borderRadius: 9, border: `1px solid ${clientUnavailable ? '#f0c070' : '#eee'}` }}>
+              <input type="checkbox" checked={clientUnavailable} onChange={e => { setClientUnavailable(e.target.checked); if(e.target.checked){setClientSig(null);setClientSignerName('');} }} style={{ width: 18, height: 18, accentColor: '#e07000', flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: clientUnavailable ? '#7a5000' : '#555', fontWeight: clientUnavailable ? 500 : 400 }}>Responsabile cliente assente — firma non raccolta</span>
+            </label>
+            {!clientUnavailable && (
+              <>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={GS.label}>Nome e Cognome in stampatello</div>
+                  <input style={GS.input} value={clientSignerName} onChange={e => setClientSignerName(e.target.value.toUpperCase())} placeholder="Es. ROSSI MARIO" />
                 </div>
-              : <button onClick={() => setShowSigOverlay('client')} style={{ width: '100%', height: 80, border: '1.5px dashed #aaa', borderRadius: 9, background: '#fafafa', cursor: 'pointer', color: '#666', fontSize: 13, fontFamily: 'inherit' }}>Il cliente firma qui</button>
-            }
-            <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 6 }}>Con la firma si conferma l'impiego svolto e l'esattezza dei dati</div>
+                {clientSig
+                  ? <div style={{ position: 'relative' }}>
+                      <img src={clientSig} style={{ width: '100%', height: 80, objectFit: 'contain', border: '0.5px solid #eee', borderRadius: 8 }} />
+                      <button onClick={() => { setClientSig(null); setShowSigOverlay('client'); }} style={{ position: 'absolute', top: 4, right: 4, background: '#fff', border: '0.5px solid #ddd', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontSize: 11 }}>Rifai</button>
+                    </div>
+                  : <button onClick={() => setShowSigOverlay('client')} style={{ width: '100%', height: 80, border: '1.5px dashed #aaa', borderRadius: 9, background: '#fafafa', cursor: 'pointer', color: '#666', fontSize: 13, fontFamily: 'inherit' }}>Il cliente firma qui</button>
+                }
+                <div style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 6 }}>Con la firma si conferma l'impiego svolto e l'esattezza dei dati</div>
+              </>
+            )}
           </div>
         )}
         {error && <div style={{ background: '#fcebeb', color: '#a32d2d', padding: '10px 14px', borderRadius: 9, fontSize: 13, marginBottom: 12 }}>{error}</div>}
@@ -804,7 +816,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
           {submitting ? 'Invio in corso…' : '📤 Invia Rapporto'}
         </button>
         {!canSubmit && <p style={{ fontSize: 11, color: '#888', textAlign: 'center', marginTop: 8 }}>
-          {reportType === 'pdf_firma' ? 'Completa firma agente, firma cliente e nome.' : 'Completa la firma agente.'}
+          {reportType === 'pdf_firma' ? (clientUnavailable ? 'Completa la firma agente.' : 'Completa firma agente, firma cliente e nome — oppure segna il responsabile come assente.') : 'Completa la firma agente.'}
         </p>}
       </div>
       <BottomNav active="home" onHome={onHome} onArchive={onArchive} onRegolamento={onRegolamento} hasNewRegolamento={hasNewRegolamento} />
@@ -872,7 +884,16 @@ async function generateAndSharePDF(report) {
   if(report.notes){y+=18; doc.setDrawColor(230,230,230); doc.roundedRect(M,y-4,W-M*2,22,2,2,'S'); field('OSSERVAZIONI',report.notes,M+3,y,160);}
   y+=28; doc.setDrawColor(200,200,200); doc.line(M,y,W-M,y); y+=8;
   if(report.agent_signature){doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA AGENTE',M,y); try{doc.addImage(report.agent_signature,'PNG',M,y+3,75,20);}catch(e){} doc.rect(M,y+3,75,20);}
-  if(report.client_signature){doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA CLIENTE',115,y); if(report.client_signer_name){doc.setTextColor(40,40,40); doc.setFontSize(9); doc.text(report.client_signer_name,115,y+5);} try{doc.addImage(report.client_signature,'PNG',115,y+8,75,18);}catch(e){} doc.rect(115,y+3,75,20);}
+  if(report.client_unavailable){
+    doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA CLIENTE',115,y);
+    doc.setFillColor(250,238,218); doc.roundedRect(115,y+3,75,20,2,2,'F');
+    doc.setDrawColor(200,150,50); doc.roundedRect(115,y+3,75,20,2,2,'S');
+    doc.setTextColor(122,80,0); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Firma non raccolta',152.5,y+10,{align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    doc.text('Responsabile cliente assente',152.5,y+16,{align:'center'});
+    doc.text('al termine del servizio',152.5,y+21,{align:'center'});
+  } else if(report.client_signature){doc.setTextColor(120,120,120); doc.setFontSize(8); doc.text('FIRMA CLIENTE',115,y); if(report.client_signer_name){doc.setTextColor(40,40,40); doc.setFontSize(9); doc.text(report.client_signer_name,115,y+5);} try{doc.addImage(report.client_signature,'PNG',115,y+8,75,18);}catch(e){} doc.rect(115,y+3,75,20);}
   const blob = doc.output('blob');
   const file = new File([blob], "Rapporto_"+report.report_number+".pdf", {type:'application/pdf'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
