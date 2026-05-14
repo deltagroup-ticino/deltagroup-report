@@ -64,6 +64,15 @@ function AppName({ size = 'md' }) {
   );
 }
 
+function BackBtn({ onClick }) {
+  const handlePress = (e) => { e.preventDefault(); e.stopPropagation(); onClick(); };
+  return (
+    <button type="button" onClick={handlePress} onTouchEnd={handlePress}
+      style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 10, minWidth: 44, minHeight: 44, width: 44, height: 44, cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24, padding: 0, WebkitAppearance: 'none', touchAction: 'manipulation' }}
+    >‹</button>
+  );
+}
+
 function Logo({ size = 60 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 60 60">
@@ -254,7 +263,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={onBack} style={GS.backBtn}>←</button>
+          <BackBtn onClick={onBack} />
           <AppName />
         </div>
         <div style={{ padding: '40px 24px', textAlign: 'center' }}>
@@ -275,7 +284,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
         <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={onBack} style={GS.backBtn}>←</button>
+          <BackBtn onClick={onBack} />
           <AppName />
         </div>
         <div style={{ padding: '24px' }}>
@@ -304,7 +313,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button onClick={onBack} style={GS.backBtn}>←</button>
+        <BackBtn onClick={onBack} />
         <AppName />
       </div>
       <div style={{ padding: '24px' }}>
@@ -435,7 +444,7 @@ function ReportTypeScreen({ onBack, onSelect }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
       <div style={{ ...GS.header }}>
-        <button onClick={onBack} style={GS.backBtn}>←</button>
+        <BackBtn onClick={onBack} />
         <span style={GS.headerTitle}>Nuovo Rapporto</span>
       </div>
       <div style={{ padding: 20 }}>
@@ -504,7 +513,7 @@ function ReportFormScreen({ collab, reportType, onBack, onNext }) {
   return (
     <div style={{ ...GS.body, paddingBottom: 20 }}>
       <div style={GS.header}>
-        <button onClick={onBack} style={GS.backBtn}>←</button>
+        <BackBtn onClick={onBack} />
         <span style={GS.headerTitle}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
       </div>
       <div style={{ padding: 16 }}>
@@ -659,7 +668,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onBack, onS
         />
       )}
       <div style={GS.header}>
-        <button onClick={onBack} style={GS.backBtn}>←</button>
+        <BackBtn onClick={onBack} />
         <span style={GS.headerTitle}>Anteprima</span>
       </div>
       <div style={{ padding: 16 }}>
@@ -768,7 +777,7 @@ function ArchiveScreen({ collab, onBack, onHome, onNew }) {
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
       <div style={GS.header}>
-        <button onClick={onBack} style={GS.backBtn}>←</button>
+        <BackBtn onClick={onBack} />
         <span style={GS.headerTitle}>Archivio Rapporti</span>
       </div>
       <div style={{ padding: '16px 16px 0' }}>
