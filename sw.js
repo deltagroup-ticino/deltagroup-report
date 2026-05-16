@@ -1,4 +1,4 @@
-const CACHE = 'dr-report-v1';
+const CACHE = 'dr-report-v2';
 const ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', e => {
