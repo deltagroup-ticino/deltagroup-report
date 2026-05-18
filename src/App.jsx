@@ -41,6 +41,32 @@ function getSession() {
 function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); }
 function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
+const SIG_BUCKET = 'report-firme';
+function dataURLtoBlob(dataURL) {
+  const [meta, b64] = dataURL.split(',');
+  const mime = (meta.match(/data:(.*?);/) || [,'image/png'])[1];
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+async function uploadSignature(c, reportId, dataURL, kind) {
+  const path = `${reportId}/${crypto.randomUUID()}_${kind}.png`;
+  const { error } = await c.storage.from(SIG_BUCKET).upload(path, dataURLtoBlob(dataURL), { contentType: 'image/png', upsert: false });
+  if (error) throw error;
+  return c.storage.from(SIG_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+async function fetchAsDataURL(url) {
+  const r = await fetch(url);
+  const blob = await r.blob();
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const toISO = (ddmmyyyy) => { const [d,m,y] = ddmmyyyy.split('/'); return `${y}-${m}-${d}`; };
 const fromISO = (iso) => { if(!iso) return '—'; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
@@ -700,7 +726,13 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
       const c = await sb();
       const svcDateISO = toISO(form.serviceDate);
       const { data: num } = await c.rpc('next_report_number');
+      const reportId = crypto.randomUUID();
+      const agentSigUrl = await uploadSignature(c, reportId, agentSig, 'agent');
+      const clientSigUrl = (reportType === 'pdf_firma' && !clientUnavailable && clientSig)
+        ? await uploadSignature(c, reportId, clientSig, 'client')
+        : null;
       const { data: rpt, error: err } = await c.from('dr_reports').insert({
+        id: reportId,
         report_number: num,
         report_type: reportType,
         service_date: svcDateISO,
@@ -718,8 +750,8 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         break_start: form.breakStart || null,
         break_end: form.breakEnd || null,
         notes: form.notes || null,
-        agent_signature: agentSig,
-        client_signature: reportType === 'pdf_firma' && !clientUnavailable ? clientSig : null,
+        agent_signature: agentSigUrl,
+        client_signature: clientSigUrl,
         client_signer_name: reportType === 'pdf_firma' && !clientUnavailable ? clientSignerName : null,
         client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
         status: 'submitted',
@@ -940,7 +972,7 @@ async function generateAndSharePDF(report) {
   // Agente
   doc.setTextColor(60,60,60); doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.text('Firma Agente', M, y+5);
   doc.setDrawColor(150,150,150); doc.setLineWidth(0.3); doc.roundedRect(M, y+7, fw, 28, 2, 2, 'S');
-  if(report.agent_signature){ try{ doc.addImage(report.agent_signature,'PNG',M+1,y+8,fw-2,26); }catch(e){} }
+  if(report.agent_signature){ try{ doc.addImage(await fetchAsDataURL(report.agent_signature),'PNG',M+1,y+8,fw-2,26); }catch(e){} }
 
   // Cliente
   const cx = M+fw+6;
@@ -955,7 +987,7 @@ async function generateAndSharePDF(report) {
   } else {
     if(report.client_signer_name){ doc.setTextColor(20,20,20); doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.text(report.client_signer_name, cx+fw, y+5, {align:'right'}); }
     doc.setDrawColor(150,150,150); doc.setLineWidth(0.3); doc.roundedRect(cx,y+7,fw,28,2,2,'S');
-    if(report.client_signature){ try{ doc.addImage(report.client_signature,'PNG',cx+1,y+8,fw-2,26); }catch(e){} }
+    if(report.client_signature){ try{ doc.addImage(await fetchAsDataURL(report.client_signature),'PNG',cx+1,y+8,fw-2,26); }catch(e){} }
     doc.setTextColor(130,130,130); doc.setFontSize(6.5); doc.setFont('helvetica','italic');
     doc.text("Con la firma si conferma l'impiego svolto e l'esattezza dei dati", cx+fw, y+38, {align:'right', maxWidth:fw});
   }
