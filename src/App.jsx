@@ -111,54 +111,64 @@ function BottomNav({ active, onHome, onArchive, onRegolamento, hasNewRegolamento
   );
 }
 
-// ── WATERMARK ─────────────────────────────────────────────────────
-// Overlay diagonale con nome utente + data/ora ripetuto su tutta la pagina.
-// Non blocca screenshot (impossibile in PWA) ma rende tracciabile chi ha
-// fotografato cosa: il nome compare sull'immagine catturata.
-function Watermark({ collab }) {
-  const [now, setNow] = useState(() => new Date());
+// ── BACKGROUND SHIELD ─────────────────────────────────────────────
+// Quando l'app esce dal primo piano (Home iPhone, selettore app,
+// schermata bloccata) copre tutta la pagina con un overlay verde:
+// chi fa screenshot dal selettore app vede solo il logo, niente dati.
+// È esattamente la tecnica che usano Revolut, PostFinance & co.
+// Manipolazione diretta del DOM (no React state) per essere sicuro
+// che il cover sia attivo PRIMA che iOS catturi lo snapshot.
+function useBackgroundShield(active) {
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(t);
-  }, []);
-  if (!collab) return null;
-  const pad = n => String(n).padStart(2, '0');
-  const text = `${collab.agent_name} · ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      pointerEvents: 'none',
-      zIndex: 9999,
-      overflow: 'hidden',
-      userSelect: 'none',
-      WebkitUserSelect: 'none',
-    }}>
-      <div style={{
-        position: 'absolute',
-        top: '-50%',
-        left: '-50%',
-        width: '200%',
-        height: '200%',
-        transform: 'rotate(-30deg)',
-        transformOrigin: 'center center',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-around',
-        fontSize: 13,
-        fontWeight: 500,
-        color: 'rgba(0,0,0,0.10)',
-        whiteSpace: 'nowrap',
-        letterSpacing: 0.3,
-      }}>
-        {Array.from({ length: 18 }).map((_, i) => (
-          <div key={i} style={{ whiteSpace: 'nowrap' }}>
-            {Array.from({ length: 8 }).map((_, j) => <span key={j} style={{ marginRight: 60 }}>{text}</span>)}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    if (!active) return;
+    const shield = document.getElementById('dr-bg-shield');
+    if (!shield) return;
+    const show = () => { shield.style.display = 'flex'; };
+    const hide = () => { shield.style.display = 'none'; };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') hide();
+      else show();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', show);
+    window.addEventListener('pageshow', hide);
+    window.addEventListener('blur', show);
+    window.addEventListener('focus', hide);
+    onVisibility();
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', show);
+      window.removeEventListener('pageshow', hide);
+      window.removeEventListener('blur', show);
+      window.removeEventListener('focus', hide);
+      hide();
+    };
+  }, [active]);
+}
+
+// ── IDLE AUTO-LOGOUT ──────────────────────────────────────────────
+// Dopo 30 minuti senza interazione dell'utente (o se l'app è stata
+// in background per più di 30 minuti) viene fatto logout automatico.
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 min
+function useIdleLogout(active, onLogout) {
+  useEffect(() => {
+    if (!active) return;
+    let lastActivity = Date.now();
+    const bump = () => { lastActivity = Date.now(); };
+    const check = () => {
+      if (Date.now() - lastActivity > IDLE_TIMEOUT_MS) onLogout();
+    };
+    const interval = setInterval(check, 30 * 1000); // controlla ogni 30s
+    const events = ['touchstart', 'mousedown', 'keydown', 'scroll'];
+    events.forEach(e => window.addEventListener(e, bump, { passive: true }));
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      events.forEach(e => window.removeEventListener(e, bump));
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [active, onLogout]);
 }
 
 function SignatureOverlay({ title, onConfirm, onCancel }) {
@@ -1057,7 +1067,11 @@ export default function App() {
   };
 
   const handleLogin=(data)=>{setCollab(data); if(!data.regulation_accepted||data.regulation_version<REGULATION_VERSION) setScreen('regulation'); else setScreen('home');};
-  const handleLogout=()=>{clearSession();setCollab(null);setScreen('login');};
+  const handleLogout=useCallback(()=>{clearSession();setCollab(null);setScreen('login');},[]);
+
+  // Sicurezza: nasconde i dati nel selettore app + logout dopo 30 min di inattività
+  useBackgroundShield(!!collab);
+  useIdleLogout(!!collab, handleLogout);
   const handleFormNext=async(fd)=>{setFormData(fd);const c=await sb();const{data:num}=await c.rpc('next_report_number');setReportNumber(num);setScreen('preview');};
   const handleSubmitted=(rpt)=>{setSubmittedReport(rpt);setScreen('success');};
   const goHome=()=>setScreen('home');
@@ -1081,7 +1095,25 @@ export default function App() {
   return (
     <>
       {content}
-      {collab && screen !== 'splash' && screen !== 'login' && <Watermark collab={collab} />}
+      {/* Background shield: coperto dal CSS quando l'app va in background */}
+      <div id="dr-bg-shield" style={{
+        display: 'none',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: GREEN,
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff',
+      }}>
+        <svg width="84" height="84" viewBox="0 0 84 84" style={{ marginBottom: 18 }}>
+          <rect width="84" height="84" rx="20" fill="rgba(255,255,255,0.10)" />
+          <polygon points="42,18 72,68 12,68" fill="none" stroke="white" strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+        <div style={{ fontSize: 17, letterSpacing: 1.5, fontWeight: 600 }}>DELTAgroup REPORT</div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Riprendi l'app per continuare</div>
+      </div>
     </>
   );
 }
