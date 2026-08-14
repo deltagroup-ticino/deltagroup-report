@@ -1,10 +1,10 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.4                     ║
-// ║  v1.4: menu "coperta da" (collaboratore/cantiere/agenzia)       ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.5                     ║
+// ║  v1.5: copertura pausa pianificata proposta in automatico       ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -789,8 +789,26 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
               ⚠️ Fine precedente all'inizio — corretto solo per servizio notturno
             </div>
           )}
+          {/* Copertura pianificata su questo servizio (orari diversi):
+              informativa + precompilazione della pausa alla prima attivazione */}
+          {impiego?.copertura?.length > 0 && (
+            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#eef4ff', borderRadius: 7, fontSize: 12, color: '#3b5b8f' }}>
+              📟 Pianificato sullo stesso servizio: {impiego.copertura.map(cp => `${cp.name} ${cp.ora_inizio}–${cp.ora_fine}`).join(', ')}
+            </div>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-            <input type="checkbox" checked={form.hasBreak} onChange={e => upd('hasBreak', e.target.checked)} style={{ width: 18, height: 18, accentColor: GREEN }} />
+            <input type="checkbox" checked={form.hasBreak} onChange={e => {
+              const on = e.target.checked;
+              setForm(f => {
+                const n = { ...f, hasBreak: on };
+                const cp = impiego?.copertura?.[0];
+                if (on && cp && !n.breakCovMode && !n.breakStart && !n.breakEnd) {
+                  n.breakCovMode = 'collab'; n.breakCovId = cp.id;
+                  n.breakStart = cp.ora_inizio; n.breakEnd = cp.ora_fine;
+                }
+                return n;
+              });
+            }} style={{ width: 18, height: 18, accentColor: GREEN }} />
             <span style={{ fontSize: 14, fontWeight: 500 }}>Pausa effettuata</span>
           </label>
           {form.hasBreak && (
