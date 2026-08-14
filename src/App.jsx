@@ -1,10 +1,10 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.5                     ║
-// ║  v1.5: copertura pausa pianificata proposta in automatico       ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.6                     ║
+// ║  v1.6: cronologia eventi + rapporto in corso (bozza) + dettato  ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.5';
+const APP_VERSION = 'v1.6';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -40,6 +40,22 @@ function getSession() {
 }
 function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); }
 function clearSession() { localStorage.removeItem(SESSION_KEY); }
+
+// ── RAPPORTO IN CORSO (bozza sul telefono) ──────────────────────────
+// Il rapporto si può compilare a più riprese durante il servizio (es.
+// cronologia della ronda): ogni modifica si salva qui da sola; la bozza
+// sparisce solo all'invio o se il collaboratore la scarta.
+const draftKey = id => `drDraft_${id}`;
+function getDraft(collabId) {
+  try { const d = JSON.parse(localStorage.getItem(draftKey(collabId))); return d && d.form ? d : null; } catch { return null; }
+}
+function saveDraft(collabId, data) { try { localStorage.setItem(draftKey(collabId), JSON.stringify({ ...data, savedAt: Date.now() })); } catch { /* storage pieno: pazienza */ } }
+function clearDraft(collabId) { localStorage.removeItem(draftKey(collabId)); }
+
+const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+// Dettatura: riconoscimento vocale del browser dove disponibile
+// (Android/Chrome sì, iOS spesso no → resta il microfono della tastiera)
+const SpeechRec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
 const today = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; };
 const toISO = (ddmmyyyy) => { const [d,m,y] = ddmmyyyy.split('/'); return `${y}-${m}-${d}`; };
@@ -535,8 +551,10 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
   );
 }
 
-function HomeScreen({ collab, onNew, onImpiego, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
+function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
   const [stats, setStats] = useState({ count: 0, lastDate: null, lastTime: null });
+  const [draft, setDraft] = useState(() => getDraft(collab.id));
+  const scartaDraft = () => { if (window.confirm('Scartare il rapporto in corso? I dati inseriti andranno persi.')) { clearDraft(collab.id); setDraft(null); } };
 
   useEffect(() => {
     const firstOfMonth = new Date(); firstOfMonth.setDate(1); firstOfMonth.setHours(0,0,0,0);
@@ -591,6 +609,23 @@ function HomeScreen({ collab, onNew, onImpiego, onArchive, onLogout, onRegolamen
             </div>
           </div>
         </div>
+
+        {/* Rapporto in corso (bozza): si riprende da dove si era rimasti */}
+        {draft && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>📝 Rapporto in corso</div>
+            <div style={{ ...GS.card, border: '1.5px solid #b8860b', background: '#fffdf5' }}>
+              <div style={{ fontWeight: 500, fontSize: 15 }}>{draft.form?.clientName || 'Rapporto senza cliente'}</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                {draft.form?.serviceDate || ''}{draft.crono?.length ? ` · 📓 ${draft.crono.length} voci in cronologia` : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button onClick={() => onResumeDraft(draft)} style={{ ...GS.btnGreen, flex: 1, padding: 11, fontSize: 14 }}>Riprendi →</button>
+                <button onClick={scartaDraft} style={{ ...GS.btnGray, width: 90, padding: 11, fontSize: 13 }}>Scarta</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <ImpieghiOggi collab={collab} onFaiRapporto={onImpiego} />
 
@@ -664,25 +699,39 @@ function ReportTypeScreen({ impiego, onSelect, onHome, onArchive, onRegolamento,
   );
 }
 
-function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
-  const [agents, setAgents] = useState([]);
+function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
+  const [agents, setAgents] = useState(draft?.agents || []);
   const [allAgents, setAllAgents] = useState([]);
   const [agentSearch, setAgentSearch] = useState('');
   const [showAgentSearch, setShowAgentSearch] = useState(false);
-  // Precompilazione da impiego PLAN (fase 2): tutto resta modificabile;
-  // l'indirizzo non esiste in PLAN e va inserito a mano.
-  const [form, setForm] = useState(() => impiego ? {
+  // Precompilazione da impiego PLAN (fase 2) o ripresa della bozza
+  // "rapporto in corso": tutto resta modificabile; l'indirizzo non
+  // esiste in PLAN e va inserito a mano.
+  const [form, setForm] = useState(() => draft ? draft.form : impiego ? {
     serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '',
   } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '' });
-  const [planShiftId, setPlanShiftId] = useState(impiego ? impiego.shift_id : null);
+  const [planShiftId, setPlanShiftId] = useState(draft ? (draft.planShiftId || null) : impiego ? impiego.shift_id : null);
   // Minuti di pausa per collaboratore (stile app HRS): {collabId: minuti}
-  const [breakMins, setBreakMins] = useState({});
+  const [breakMins, setBreakMins] = useState(draft?.breakMins || {});
+  // 📓 Cronologia dell'evento: scaletta ora+testo compilata durante il
+  // servizio (attivabile in qualsiasi rapporto — decisione Paolo 14.08)
+  const [cronoOn, setCronoOn] = useState(draft ? !!draft.cronoOn : false);
+  const [crono, setCrono] = useState(draft?.crono || []);
+  const [recording, setRecording] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Autosalvataggio bozza a ogni modifica: il rapporto resta "in corso"
+  // sul telefono finché non viene inviato (o scartato dalla home)
+  useEffect(() => {
+    saveDraft(collab.id, { reportType, impiego: impiego || null, form, agents, breakMins, planShiftId, cronoOn, crono });
+  }, [form, agents, breakMins, planShiftId, cronoOn, crono]);// eslint-disable-line
 
   useEffect(() => {
     sb().then(c => c.from('report_collaborators').select('id,agent_name').eq('is_active', true).order('agent_name')).then(({ data }) => {
       if (data) {
         setAllAgents(data);
+        // Ripresa bozza: gli agenti sono già quelli salvati, non si toccano
+        if (draft) return;
         const me = data.find(a => a.id === collab.id);
         // Colleghi pianificati sullo stesso impiego PLAN: precompilati,
         // rimovibili con la ✕ (collega assente = lo togli dal rapporto)
@@ -868,6 +917,47 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
           <div style={GS.label}>Osservazioni</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
         </div>
+        {/* 📓 Cronologia dell'evento: si compila durante il servizio, la
+            bozza resta sul telefono finché non si invia il rapporto */}
+        <div style={GS.card}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={cronoOn} onChange={e => setCronoOn(e.target.checked)} style={{ width: 18, height: 18, accentColor: GREEN }} />
+            <span style={{ fontSize: 14, fontWeight: 500 }}>📓 Cronologia dell'evento</span>
+          </label>
+          {cronoOn && (
+            <div style={{ marginTop: 12 }}>
+              {crono.map((e, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                  <input type="time" value={e.ora} onChange={ev => setCrono(p => p.map((x, j) => j === i ? { ...x, ora: ev.target.value } : x))} style={{ ...GS.input, width: 92, flexShrink: 0, padding: '9px 8px' }} />
+                  <input value={e.testo} onChange={ev => setCrono(p => p.map((x, j) => j === i ? { ...x, testo: ev.target.value } : x))} placeholder="Cosa è successo…" style={{ ...GS.input, padding: '9px 10px' }} />
+                  <button onClick={() => setCrono(p => p.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 16, padding: '0 2px', flexShrink: 0 }}>✕</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                <button onClick={() => setCrono(p => [...p, { ora: nowHM(), testo: '' }])} style={{ flex: 1, minWidth: 130, padding: '9px', border: `1.5px solid ${GREEN}`, borderRadius: 8, background: 'none', color: GREEN, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', touchAction: 'manipulation' }}>+ Aggiungi voce</button>
+                {SpeechRec && (
+                  <button onClick={() => {
+                    if (recording) return;
+                    try {
+                      const r = new SpeechRec(); r.lang = 'it-IT'; r.interimResults = false; r.maxAlternatives = 1;
+                      setRecording(true);
+                      r.onresult = ev => { const t = ev.results[0][0].transcript; if (t) setCrono(p => [...p, { ora: nowHM(), testo: t }]); };
+                      r.onend = () => setRecording(false);
+                      r.onerror = () => setRecording(false);
+                      r.start();
+                    } catch { setRecording(false); }
+                  }} style={{ flex: 1, minWidth: 110, padding: '9px', border: '1.5px solid #b8860b', borderRadius: 8, background: recording ? '#fdf3d7' : 'none', color: '#b8860b', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', touchAction: 'manipulation' }}>{recording ? '🔴 In ascolto…' : '🎤 Detta voce'}</button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {['Inizio servizio', 'Briefing', 'Fine servizio'].map(q => (
+                  <button key={q} onClick={() => setCrono(p => [...p, { ora: nowHM(), testo: q }])} style={{ padding: '6px 10px', border: '0.5px solid #ccc', borderRadius: 7, background: '#f7f7f7', color: '#555', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', touchAction: 'manipulation' }}>{q}</button>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: '#999', lineHeight: 1.5 }}>💾 Si salva da solo sul telefono: puoi chiudere l'app e riprendere dalla home ("Rapporto in corso"). Per dettare puoi anche usare il 🎤 della tastiera.</div>
+            </div>
+          )}
+        </div>
         <button onClick={() => {
           if (!validate()) return;
           // Testo "coperta da" derivato dal menu (il PDF e l'admin restano invariati)
@@ -876,7 +966,7 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
             form.breakCovMode === 'cantiere' ? 'Cantiere fermo' :
             form.breakCovMode === 'agenzia' ? (form.breakCovText ? `Agenzia: ${form.breakCovText}` : 'Altra agenzia') :
             form.breakCovMode === 'altro' ? form.breakCovText : '';
-          onNext({ form: { ...form, breakCoveredBy: covText }, agents, planShiftId, breakMins });
+          onNext({ form: { ...form, breakCoveredBy: covText }, agents, planShiftId, breakMins, crono: cronoOn ? crono.filter(e => (e.testo || '').trim()) : [] });
         }} style={GS.btnGreen}>
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
@@ -887,7 +977,8 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
 }
 
 function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
-  const { form, agents, planShiftId, breakMins } = formData;
+  const { form, agents, planShiftId, breakMins, crono } = formData;
+  const cronoJson = Array.isArray(crono) && crono.length ? crono : null;
   // Pause per collaboratore: [{id, name, break_min}] — solo se pausa attiva
   const breaksJson = form.hasBreak
     ? agents.map(a => ({ id: a.id, name: a.agent_name, break_min: Number(breakMins?.[a.id] || 0) }))
@@ -938,12 +1029,13 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         plan_shift_id: planShiftId || null,
         breaks_json: breaksJson,
         break_covered_by_id: form.hasBreak ? (form.breakCovId || null) : null,
+        chronology_json: cronoJson,
       };
       let { data: rpt, error: err } = await c.from('dr_reports').insert(payload).select().single();
       // Transizione: se le colonne nuove non esistono ancora sul DB,
       // il rapporto va salvato comunque (senza i campi extra)
-      if (err && /breaks_json|break_covered_by_id/i.test(err.message || '')) {
-        const { breaks_json: _b, break_covered_by_id: _c, ...base } = payload;
+      if (err && /breaks_json|break_covered_by_id|chronology_json/i.test(err.message || '')) {
+        const { breaks_json: _b, break_covered_by_id: _c, chronology_json: _k, ...base } = payload;
         ({ data: rpt, error: err } = await c.from('dr_reports').insert(base).select().single());
       }
       if (err) throw err;
@@ -996,6 +1088,10 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
               </div>
             )}
             {form.notes && <div style={{ gridColumn: '1/-1' }}><Row label="Osservazioni" value={form.notes} /></div>}
+            {cronoJson && <div style={{ gridColumn: '1/-1' }}>
+              <div style={{ fontSize: 10, color: '#888', marginBottom: 3 }}>📓 Cronologia dell'evento</div>
+              {cronoJson.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#111', marginBottom: 2 }}><strong style={{ fontFamily: 'monospace' }}>{e.ora}</strong> — {e.testo}</div>)}
+            </div>}
           </div>
           <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 5, fontWeight: 500, background: reportType === 'pdf_firma' ? GREEN_LIGHT : '#f0f0f0', color: reportType === 'pdf_firma' ? '#1a5c1a' : '#555' }}>
@@ -1215,6 +1311,9 @@ export default function App() {
   const [collab, setCollab] = useState(null);
   const [reportType, setReportType] = useState(null);
   const [planImpiego, setPlanImpiego] = useState(null); // impiego PLAN scelto in home (fase 2)
+  const [draftData, setDraftData] = useState(null);     // bozza "rapporto in corso" ripresa dalla home
+  // Nuovo rapporto con una bozza già presente: chiedere prima di sovrascriverla
+  const confermaSovrascrivi = () => !getDraft(collab.id) || window.confirm('C\'è già un rapporto in corso: iniziandone uno nuovo verrà sovrascritto. Continuare?');
   const [formData, setFormData] = useState(null);
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
@@ -1246,7 +1345,7 @@ export default function App() {
   useBackgroundShield(!!collab);
   useIdleLogout(!!collab, handleLogout);
   const handleFormNext=async(fd)=>{setFormData(fd);const c=await sb();const{data:num}=await c.rpc('next_report_number');setReportNumber(num);setScreen('preview');};
-  const handleSubmitted=(rpt)=>{setSubmittedReport(rpt);setScreen('success');};
+  const handleSubmitted=(rpt)=>{clearDraft(collab.id);setDraftData(null);setSubmittedReport(rpt);setScreen('success');};
   const goHome=()=>setScreen('home');
   const goArchive=()=>setScreen('archive');
   const goRegolamento=()=>setScreen('regolamento');
@@ -1257,9 +1356,9 @@ export default function App() {
   else if(screen==='login') content = <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
   else if(screen==='firstAccess') content = <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
   else if(screen==='regulation') content = <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION});setScreen('home');}} />;
-  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{setPlanImpiego(imp);setScreen('tipoImpiego');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(imp);setScreen('tipoImpiego');}} onResumeDraft={(d)=>{setDraftData(d);setPlanImpiego(d.impiego||null);setReportType(d.reportType||'solo_testo');setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='tipoImpiego') content = <ReportTypeScreen impiego={planImpiego} onSelect={(t)=>{setReportType(t);setScreen('form');}} onHome={()=>{setPlanImpiego(null);goHome();}} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
-  else if(screen==='form') content = <ReportFormScreen collab={collab} reportType={reportType} impiego={planImpiego} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='form') content = <ReportFormScreen key={draftData?'draft':'new-'+(planImpiego?.shift_id||reportType)} collab={collab} reportType={reportType} impiego={planImpiego} draft={draftData} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='preview') content = <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='success') content = <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
   else if(screen==='archive') content = <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
