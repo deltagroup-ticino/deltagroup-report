@@ -1,10 +1,10 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.3                     ║
-// ║  v1.3: colleghi precompilati + pause per collaboratore          ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.4                     ║
+// ║  v1.4: menu "coperta da" (collaboratore/cantiere/agenzia)       ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -672,8 +672,8 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
   // Precompilazione da impiego PLAN (fase 2): tutto resta modificabile;
   // l'indirizzo non esiste in PLAN e va inserito a mano.
   const [form, setForm] = useState(() => impiego ? {
-    serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '',
-  } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '' });
+    serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '',
+  } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '' });
   const [planShiftId, setPlanShiftId] = useState(impiego ? impiego.shift_id : null);
   // Minuti di pausa per collaboratore (stile app HRS): {collabId: minuti}
   const [breakMins, setBreakMins] = useState({});
@@ -795,9 +795,28 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
           </label>
           {form.hasBreak && (
             <div style={{ marginTop: 12 }}>
+              {/* Chi ha coperto la pausa: collaboratore (da elenco → PLAN
+                  può riconoscerlo e conteggiare le ore di copertura),
+                  cantiere fermo, altra agenzia o testo libero */}
               <div style={{ marginBottom: 10 }}>
-                <div style={GS.label}>Coperta da (nome agente)</div>
-                <input style={GS.input} value={form.breakCoveredBy} onChange={e => upd('breakCoveredBy', e.target.value)} placeholder="Nome agente" />
+                <div style={GS.label}>Coperta da</div>
+                <select style={GS.input} value={form.breakCovMode === 'collab' ? form.breakCovId : form.breakCovMode}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '' || v === 'cantiere' || v === 'agenzia' || v === 'altro') setForm(f => ({ ...f, breakCovMode: v, breakCovId: '' }));
+                    else setForm(f => ({ ...f, breakCovMode: 'collab', breakCovId: v }));
+                  }}>
+                  <option value="">— scegli —</option>
+                  <optgroup label="👤 Collaboratori">
+                    {allAgents.map(a => <option key={a.id} value={a.id}>{a.agent_name}</option>)}
+                  </optgroup>
+                  <option value="cantiere">🏗 Cantiere fermo (nessuna copertura)</option>
+                  <option value="agenzia">🏢 Altra agenzia…</option>
+                  <option value="altro">✏️ Altro…</option>
+                </select>
+                {(form.breakCovMode === 'agenzia' || form.breakCovMode === 'altro') && (
+                  <input style={{ ...GS.input, marginTop: 6 }} value={form.breakCovText} onChange={e => upd('breakCovText', e.target.value)} placeholder={form.breakCovMode === 'agenzia' ? 'Nome agenzia' : 'Chi ha coperto la pausa'} />
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div><div style={GS.label}>Inizio pausa</div><input style={GS.input} type="time" value={form.breakStart} onChange={e => upd('breakStart', e.target.value)} /></div>
@@ -831,7 +850,16 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
           <div style={GS.label}>Osservazioni</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
         </div>
-        <button onClick={() => { if (validate()) onNext({ form, agents, planShiftId, breakMins }); }} style={GS.btnGreen}>
+        <button onClick={() => {
+          if (!validate()) return;
+          // Testo "coperta da" derivato dal menu (il PDF e l'admin restano invariati)
+          const covText = !form.hasBreak ? '' :
+            form.breakCovMode === 'collab' ? (allAgents.find(a => a.id === form.breakCovId)?.agent_name || '') :
+            form.breakCovMode === 'cantiere' ? 'Cantiere fermo' :
+            form.breakCovMode === 'agenzia' ? (form.breakCovText ? `Agenzia: ${form.breakCovText}` : 'Altra agenzia') :
+            form.breakCovMode === 'altro' ? form.breakCovText : '';
+          onNext({ form: { ...form, breakCoveredBy: covText }, agents, planShiftId, breakMins });
+        }} style={GS.btnGreen}>
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
@@ -866,7 +894,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
       const c = await sb();
       const svcDateISO = toISO(form.serviceDate);
       const { data: num } = await c.rpc('next_report_number');
-      let { data: rpt, error: err } = await c.from('dr_reports').insert({
+      const payload = {
         report_number: num,
         report_type: reportType,
         service_date: svcDateISO,
@@ -891,35 +919,14 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         status: 'submitted',
         plan_shift_id: planShiftId || null,
         breaks_json: breaksJson,
-      }).select().single();
-      // Transizione: se la colonna breaks_json non esiste ancora sul DB,
-      // il rapporto va salvato comunque (senza il dettaglio pause)
-      if (err && /breaks_json/i.test(err.message || '')) {
-        ({ data: rpt, error: err } = await c.from('dr_reports').insert({
-          report_number: num,
-          report_type: reportType,
-          service_date: svcDateISO,
-          is_late: isLate(svcDateISO),
-          submitted_by_id: collab.id,
-          submitted_by_name: collab.agent_name,
-          agents_json: agents.map(a => ({ id: a.id, name: a.agent_name })),
-          client_name: form.clientName,
-          location: form.location,
-          address: form.address,
-          start_time: form.startTime,
-          end_time: form.endTime,
-          has_break: form.hasBreak,
-          break_covered_by: form.breakCoveredBy || null,
-          break_start: form.breakStart || null,
-          break_end: form.breakEnd || null,
-          notes: form.notes || null,
-          agent_signature: agentSig,
-          client_signature: reportType === 'pdf_firma' && !clientUnavailable ? clientSig : null,
-          client_signer_name: reportType === 'pdf_firma' && !clientUnavailable ? clientSignerName : null,
-          client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
-          status: 'submitted',
-          plan_shift_id: planShiftId || null,
-        }).select().single());
+        break_covered_by_id: form.hasBreak ? (form.breakCovId || null) : null,
+      };
+      let { data: rpt, error: err } = await c.from('dr_reports').insert(payload).select().single();
+      // Transizione: se le colonne nuove non esistono ancora sul DB,
+      // il rapporto va salvato comunque (senza i campi extra)
+      if (err && /breaks_json|break_covered_by_id/i.test(err.message || '')) {
+        const { breaks_json: _b, break_covered_by_id: _c, ...base } = payload;
+        ({ data: rpt, error: err } = await c.from('dr_reports').insert(base).select().single());
       }
       if (err) throw err;
       onSubmit(rpt);
