@@ -1,10 +1,10 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.2                     ║
-// ║  v1.2: impieghi PLAN del giorno in home + rapporto precompilato ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.3                     ║
+// ║  v1.3: colleghi precompilati + pause per collaboratore          ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -675,6 +675,8 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
     serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '',
   } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '' });
   const [planShiftId, setPlanShiftId] = useState(impiego ? impiego.shift_id : null);
+  // Minuti di pausa per collaboratore (stile app HRS): {collabId: minuti}
+  const [breakMins, setBreakMins] = useState({});
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -682,7 +684,10 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
       if (data) {
         setAllAgents(data);
         const me = data.find(a => a.id === collab.id);
-        if (me) setAgents([me]);
+        // Colleghi pianificati sullo stesso impiego PLAN: precompilati,
+        // rimovibili con la ✕ (collega assente = lo togli dal rapporto)
+        const colleghi = (impiego?.colleghi || []).map(cl => data.find(a => a.id === cl.id)).filter(a => a && a.id !== collab.id);
+        setAgents([...(me ? [me] : []), ...colleghi]);
       }
     });
   }, []);
@@ -798,6 +803,27 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
                 <div><div style={GS.label}>Inizio pausa</div><input style={GS.input} type="time" value={form.breakStart} onChange={e => upd('breakStart', e.target.value)} /></div>
                 <div><div style={GS.label}>Fine pausa</div><input style={GS.input} type="time" value={form.breakEnd} onChange={e => upd('breakEnd', e.target.value)} /></div>
               </div>
+              {/* Minuti di pausa di ciascun collaboratore: chi ha coperto la
+                  pausa resta su "—" (zero) → le sue ore contano piene */}
+              <div style={{ marginTop: 14 }}>
+                <div style={GS.label}>Minuti di pausa per collaboratore</div>
+                {agents.map(ag => (
+                  <div key={ag.id} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 5 }}>{ag.agent_name}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[0, 15, 30, 45, 60, 75, 90, 120].map(m => {
+                        const sel = (breakMins[ag.id] || 0) === m;
+                        return (
+                          <button key={m} onClick={() => setBreakMins(p => ({ ...p, [ag.id]: m }))}
+                            style={{ minWidth: 44, padding: '8px 6px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', touchAction: 'manipulation', border: sel ? `1.5px solid ${GREEN}` : '0.5px solid #ccc', background: sel ? GREEN_LIGHT : '#fff', color: sel ? GREEN : '#555', fontWeight: sel ? 600 : 400 }}>
+                            {m === 0 ? '—' : `${m}′`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -805,7 +831,7 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
           <div style={GS.label}>Osservazioni</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
         </div>
-        <button onClick={() => { if (validate()) onNext({ form, agents, planShiftId }); }} style={GS.btnGreen}>
+        <button onClick={() => { if (validate()) onNext({ form, agents, planShiftId, breakMins }); }} style={GS.btnGreen}>
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
@@ -815,7 +841,11 @@ function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchi
 }
 
 function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
-  const { form, agents, planShiftId } = formData;
+  const { form, agents, planShiftId, breakMins } = formData;
+  // Pause per collaboratore: [{id, name, break_min}] — solo se pausa attiva
+  const breaksJson = form.hasBreak
+    ? agents.map(a => ({ id: a.id, name: a.agent_name, break_min: Number(breakMins?.[a.id] || 0) }))
+    : null;
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
   const [clientSignerName, setClientSignerName] = useState('');
@@ -836,7 +866,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
       const c = await sb();
       const svcDateISO = toISO(form.serviceDate);
       const { data: num } = await c.rpc('next_report_number');
-      const { data: rpt, error: err } = await c.from('dr_reports').insert({
+      let { data: rpt, error: err } = await c.from('dr_reports').insert({
         report_number: num,
         report_type: reportType,
         service_date: svcDateISO,
@@ -860,7 +890,37 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
         status: 'submitted',
         plan_shift_id: planShiftId || null,
+        breaks_json: breaksJson,
       }).select().single();
+      // Transizione: se la colonna breaks_json non esiste ancora sul DB,
+      // il rapporto va salvato comunque (senza il dettaglio pause)
+      if (err && /breaks_json/i.test(err.message || '')) {
+        ({ data: rpt, error: err } = await c.from('dr_reports').insert({
+          report_number: num,
+          report_type: reportType,
+          service_date: svcDateISO,
+          is_late: isLate(svcDateISO),
+          submitted_by_id: collab.id,
+          submitted_by_name: collab.agent_name,
+          agents_json: agents.map(a => ({ id: a.id, name: a.agent_name })),
+          client_name: form.clientName,
+          location: form.location,
+          address: form.address,
+          start_time: form.startTime,
+          end_time: form.endTime,
+          has_break: form.hasBreak,
+          break_covered_by: form.breakCoveredBy || null,
+          break_start: form.breakStart || null,
+          break_end: form.breakEnd || null,
+          notes: form.notes || null,
+          agent_signature: agentSig,
+          client_signature: reportType === 'pdf_firma' && !clientUnavailable ? clientSig : null,
+          client_signer_name: reportType === 'pdf_firma' && !clientUnavailable ? clientSignerName : null,
+          client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
+          status: 'submitted',
+          plan_shift_id: planShiftId || null,
+        }).select().single());
+      }
       if (err) throw err;
       onSubmit(rpt);
     } catch (e) { setError('Errore durante l\'invio. Riprova.'); console.error(e); }
@@ -905,6 +965,11 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
             <Row label="Inizio" value={form.startTime} />
             <Row label="Fine" value={form.endTime} />
             {form.hasBreak && <Row label="Pausa" value={`${form.breakStart}–${form.breakEnd} (${form.breakCoveredBy})`} />}
+            {breaksJson && breaksJson.some(b => b.break_min > 0) && (
+              <div style={{ gridColumn: '1/-1' }}>
+                <Row label="Minuti di pausa" value={breaksJson.map(b => `${b.name}: ${b.break_min > 0 ? b.break_min + '′' : '—'}`).join(' · ')} />
+              </div>
+            )}
             {form.notes && <div style={{ gridColumn: '1/-1' }}><Row label="Osservazioni" value={form.notes} /></div>}
           </div>
           <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
