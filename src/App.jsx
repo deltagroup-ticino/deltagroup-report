@@ -1,10 +1,10 @@
 // ╔══════════════════════════════════════════════════════════════════╗
-// ║  DELTAgroup REPORT — App Collaboratore v1.1                     ║
-// ║  Fix: primo accesso maiuscolo, report number, archivio          ║
+// ║  DELTAgroup REPORT — App Collaboratore v1.2                     ║
+// ║  v1.2: impieghi PLAN del giorno in home + rapporto precompilato ║
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.1';
+const APP_VERSION = 'v1.2';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -483,7 +483,59 @@ function RegulationScreen({ collab, onAccepted }) {
   );
 }
 
-function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
+// ── IMPIEGHI PLAN DEL GIORNO (fase 2 PLAN↔REPORT) ─────────────────
+// Carica via RPC security-definer gli impieghi PLAN del collaboratore:
+// turni che iniziano oggi + notturni di ieri ancora senza rapporto.
+// Se la RPC non esiste/fallisce o il collaboratore non è mappato in
+// PLAN, il blocco semplicemente non compare: il rapporto libero resta
+// sempre disponibile.
+function ImpieghiOggi({ collab, onFaiRapporto }) {
+  const [impieghi, setImpieghi] = useState(null); // null = nascosto (caricamento/errore)
+
+  useEffect(() => {
+    let attivo = true;
+    (async () => {
+      try {
+        const c = await sb();
+        const { data, error } = await c.rpc('report_my_plan_shifts', {
+          p_collab_id: collab.id, p_pin: collab.pin, p_date: toISO(today()),
+        });
+        if (attivo && !error && Array.isArray(data)) setImpieghi(data);
+      } catch { /* blocco assente */ }
+    })();
+    return () => { attivo = false; };
+  }, []);
+
+  if (!impieghi) return null;
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>📅 I tuoi impieghi di oggi</div>
+      {impieghi.length === 0 && (
+        <div style={{ ...GS.card, color: '#999', fontSize: 13, textAlign: 'center', padding: '16px' }}>Nessun impiego in programma oggi</div>
+      )}
+      {impieghi.map(imp => (
+        <div key={imp.shift_id} style={{ ...GS.card, border: imp.report_inviato ? '0.5px solid #e0e0e0' : imp.report_atteso ? '1.5px solid #e8a33d' : '0.5px solid #e0e0e0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+            <div style={{ fontWeight: 500, fontSize: 15 }}>{imp.service_name}</div>
+            <div style={{ fontSize: 14, color: '#333', whiteSpace: 'nowrap' }}>{imp.ora_inizio}–{imp.ora_fine}</div>
+          </div>
+          {imp.luogo && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{imp.luogo}</div>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {imp.da_ieri && <span style={{ fontSize: 11, background: '#eef1f7', color: '#4a5a7a', borderRadius: 6, padding: '3px 8px' }}>🌙 iniziato ieri</span>}
+            {imp.report_atteso && !imp.report_inviato && <span style={{ fontSize: 11, background: '#faeeda', color: '#854f0b', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>📄 Rapporto atteso</span>}
+            {imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato</span>}
+          </div>
+          {!imp.report_inviato && (
+            <button onClick={() => onFaiRapporto(imp)} style={{ ...GS.btnOutline, marginTop: 10, padding: 10, fontSize: 14 }}>Fai rapporto →</button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HomeScreen({ collab, onNew, onImpiego, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
   const [stats, setStats] = useState({ count: 0, lastDate: null, lastTime: null });
 
   useEffect(() => {
@@ -540,6 +592,8 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
           </div>
         </div>
 
+        <ImpieghiOggi collab={collab} onFaiRapporto={onImpiego} />
+
         <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Nuovo rapporto</div>
         <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 12, padding: '18px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
@@ -568,13 +622,21 @@ function HomeScreen({ collab, onNew, onArchive, onLogout, onRegolamento, hasNewR
   );
 }
 
-function ReportTypeScreen({ onSelect, onHome, onArchive }) {
+function ReportTypeScreen({ impiego, onSelect, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', paddingBottom: 70 }}>
       <div style={{ ...GS.header }}>
+        <BackBtn onClick={onHome} />
         <AppName />
       </div>
       <div style={{ padding: 20 }}>
+        {impiego && (
+          <div style={{ ...GS.card, background: GREEN_LIGHT, border: `0.5px solid ${GREEN}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: GREEN, fontWeight: 600, marginBottom: 3 }}>📅 IMPIEGO SELEZIONATO</div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{impiego.service_name} · {impiego.ora_inizio}–{impiego.ora_fine}</div>
+            {impiego.luogo && <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{impiego.luogo}</div>}
+          </div>
+        )}
         <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto:</p>
         <div onClick={() => onSelect('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `1.5px solid ${GREEN}`, marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
@@ -602,12 +664,17 @@ function ReportTypeScreen({ onSelect, onHome, onArchive }) {
   );
 }
 
-function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
+function ReportFormScreen({ collab, reportType, impiego, onNext, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
   const [agents, setAgents] = useState([]);
   const [allAgents, setAllAgents] = useState([]);
   const [agentSearch, setAgentSearch] = useState('');
   const [showAgentSearch, setShowAgentSearch] = useState(false);
-  const [form, setForm] = useState({ serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '' });
+  // Precompilazione da impiego PLAN (fase 2): tutto resta modificabile;
+  // l'indirizzo non esiste in PLAN e va inserito a mano.
+  const [form, setForm] = useState(() => impiego ? {
+    serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '',
+  } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakStart: '', breakEnd: '', notes: '' });
+  const [planShiftId, setPlanShiftId] = useState(impiego ? impiego.shift_id : null);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -646,6 +713,15 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive, onReg
         <span style={{ ...GS.headerTitle, marginLeft: 8, fontSize: 13, opacity: 0.85 }}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
       </div>
       <div style={{ padding: 16 }}>
+        {planShiftId && (
+          <div style={{ ...GS.card, background: GREEN_LIGHT, border: `0.5px solid ${GREEN}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, color: GREEN, fontWeight: 600, marginBottom: 2 }}>📅 COLLEGATO ALL'IMPIEGO PLAN</div>
+              <div style={{ fontSize: 13 }}>{impiego?.service_name} · {impiego?.ora_inizio}–{impiego?.ora_fine}</div>
+            </div>
+            <button onClick={() => setPlanShiftId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12, textDecoration: 'underline', fontFamily: 'inherit', flexShrink: 0, touchAction: 'manipulation' }}>✕ scollega</button>
+          </div>
+        )}
         <div style={GS.card}>
           <div style={GS.label}>Data servizio *</div>
           <input style={{ ...GS.input, borderColor: errors.serviceDate ? '#e24b4a' : '#ccc' }} type="date" value={form.serviceDate ? toISO(form.serviceDate) : ''} onChange={e => upd('serviceDate', fromISO(e.target.value))} />
@@ -729,7 +805,7 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive, onReg
           <div style={GS.label}>Osservazioni</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
         </div>
-        <button onClick={() => { if (validate()) onNext({ form, agents }); }} style={GS.btnGreen}>
+        <button onClick={() => { if (validate()) onNext({ form, agents, planShiftId }); }} style={GS.btnGreen}>
           {reportType === 'pdf_firma' ? 'Anteprima e Firma →' : 'Anteprima →'}
         </button>
       </div>
@@ -739,7 +815,7 @@ function ReportFormScreen({ collab, reportType, onNext, onHome, onArchive, onReg
 }
 
 function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
-  const { form, agents } = formData;
+  const { form, agents, planShiftId } = formData;
   const [agentSig, setAgentSig] = useState(null);
   const [clientSig, setClientSig] = useState(null);
   const [clientSignerName, setClientSignerName] = useState('');
@@ -783,6 +859,7 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         client_signer_name: reportType === 'pdf_firma' && !clientUnavailable ? clientSignerName : null,
         client_unavailable: reportType === 'pdf_firma' ? clientUnavailable : false,
         status: 'submitted',
+        plan_shift_id: planShiftId || null,
       }).select().single();
       if (err) throw err;
       onSubmit(rpt);
@@ -830,10 +907,15 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
             {form.hasBreak && <Row label="Pausa" value={`${form.breakStart}–${form.breakEnd} (${form.breakCoveredBy})`} />}
             {form.notes && <div style={{ gridColumn: '1/-1' }}><Row label="Osservazioni" value={form.notes} /></div>}
           </div>
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 5, fontWeight: 500, background: reportType === 'pdf_firma' ? GREEN_LIGHT : '#f0f0f0', color: reportType === 'pdf_firma' ? '#1a5c1a' : '#555' }}>
               {reportType === 'pdf_firma' ? 'PDF – Con firma cliente' : 'Solo testo'}
             </span>
+            {planShiftId && (
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 5, fontWeight: 500, background: GREEN_LIGHT, color: '#1a5c1a' }}>
+                📅 Collegato all'impiego PLAN
+              </span>
+            )}
           </div>
         </div>
         <div style={GS.card}>
@@ -1042,6 +1124,7 @@ export default function App() {
   const [screen, setScreen] = useState('splash');
   const [collab, setCollab] = useState(null);
   const [reportType, setReportType] = useState(null);
+  const [planImpiego, setPlanImpiego] = useState(null); // impiego PLAN scelto in home (fase 2)
   const [formData, setFormData] = useState(null);
   const [reportNumber, setReportNumber] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
@@ -1084,8 +1167,9 @@ export default function App() {
   else if(screen==='login') content = <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
   else if(screen==='firstAccess') content = <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
   else if(screen==='regulation') content = <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION});setScreen('home');}} />;
-  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{setReportType(t);setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
-  else if(screen==='form') content = <ReportFormScreen collab={collab} reportType={reportType} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{setPlanImpiego(imp);setScreen('tipoImpiego');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='tipoImpiego') content = <ReportTypeScreen impiego={planImpiego} onSelect={(t)=>{setReportType(t);setScreen('form');}} onHome={()=>{setPlanImpiego(null);goHome();}} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='form') content = <ReportFormScreen collab={collab} reportType={reportType} impiego={planImpiego} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='preview') content = <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='success') content = <SuccessScreen report={submittedReport} onHome={goHome} onArchive={goArchive} />;
   else if(screen==='archive') content = <ArchiveScreen collab={collab} onHome={goHome} onOpenReport={(r)=>{setSelectedReport(r);setScreen('reportDetail');}} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
