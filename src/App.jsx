@@ -728,6 +728,7 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
   const [cronoOn, setCronoOn] = useState(draft ? !!draft.cronoOn : false);
   const [crono, setCrono] = useState(draft?.crono || []);
   const [recording, setRecording] = useState(false);
+  const [covSearch, setCovSearch] = useState('');
   const [errors, setErrors] = useState({});
 
   // Autosalvataggio bozza a ogni modifica: il rapporto resta "in corso"
@@ -768,7 +769,9 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
     return Object.keys(e).length === 0 || (Object.keys(e).length === 1 && e.timeWarning);
   };
 
-  const filteredAgents = allAgents.filter(a => !agents.find(ag => ag.id === a.id) && a.agent_name.toLowerCase().includes(agentSearch.toLowerCase()));
+  // Filtro per COGNOME (i nomi sono registrati "COGNOME Nome" → si filtra
+  // dall'inizio: "pol" trova POLETTI, mai i Marco — richiesta Paolo 15.08)
+  const filteredAgents = allAgents.filter(a => !agents.find(ag => ag.id === a.id) && a.agent_name.toLowerCase().startsWith(agentSearch.toLowerCase().trim()));
 
   return (
     <div style={{ ...GS.body, paddingBottom: 70 }}>
@@ -877,6 +880,9 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
                   cantiere fermo, altra agenzia o testo libero */}
               <div style={{ marginBottom: 10 }}>
                 <div style={GS.label}>Coperta da</div>
+                {/* Filtro per cognome: riduce l'elenco del menu qui sotto
+                    (il collaboratore già scelto resta sempre visibile) */}
+                <input style={{ ...GS.input, marginBottom: 6 }} value={covSearch} onChange={e => setCovSearch(e.target.value)} placeholder="Filtra per cognome… (es. POL)" />
                 <select style={GS.input} value={form.breakCovMode === 'collab' ? form.breakCovId : form.breakCovMode}
                   onChange={e => {
                     const v = e.target.value;
@@ -885,7 +891,7 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
                   }}>
                   <option value="">— scegli —</option>
                   <optgroup label="👤 Collaboratori">
-                    {allAgents.map(a => <option key={a.id} value={a.id}>{a.agent_name}</option>)}
+                    {allAgents.filter(a => a.id === form.breakCovId || a.agent_name.toLowerCase().startsWith(covSearch.toLowerCase().trim())).map(a => <option key={a.id} value={a.id}>{a.agent_name}</option>)}
                   </optgroup>
                   <option value="cantiere">🏗 Cantiere fermo (nessuna copertura)</option>
                   <option value="agenzia">🏢 Altra agenzia…</option>
