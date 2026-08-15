@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.7';
+const APP_VERSION = 'v1.8';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -111,11 +111,24 @@ function Logo({ size = 60 }) {
   );
 }
 
+// ── ICONE SVG LINEARI (prova Paolo 15.08 — commit dedicato, revert facile) ──
+// Stile coerente: stroke currentColor, fill none, tratto 1.8, angoli tondi.
+const IcSvg = ({ size = 24, children }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>{children}</svg>
+);
+const IcFirma = ({ size }) => <IcSvg size={size}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 13.5c1.5-1.3 2.6-1.8 3.3-1.2.8.7-.2 2.2.5 2.6.7.4 1.4-.8 2.2-.6.5.1.8.5 1 1"/><path d="M8 18h7"/></IcSvg>;
+const IcTesto = ({ size }) => <IcSvg size={size}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></IcSvg>;
+const IcHome = ({ size }) => <IcSvg size={size}><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></IcSvg>;
+const IcArchivio = ({ size }) => <IcSvg size={size}><path d="M3 7h7l2 2h9v10H3z"/><path d="M3 7V5h7l2 2h7"/></IcSvg>;
+const IcRegolamento = ({ size }) => <IcSvg size={size}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h5"/></IcSvg>;
+const IcCalendario = ({ size }) => <IcSvg size={size}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3 10h18"/><path d="M8 14h2"/><path d="M14 14h2"/></IcSvg>;
+const IcChevron = ({ size = 20 }) => <IcSvg size={size}><path d="m9 18 6-6-6-6"/></IcSvg>;
+
 function BottomNav({ active, onHome, onArchive, onRegolamento, hasNewRegolamento }) {
-  const btn = (label, icon, isActive, onClick, showDot) => (
+  const btn = (label, Icon, isActive, onClick, showDot) => (
     <button onClick={onClick} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, touchAction: 'manipulation', position: 'relative' }}>
-      <span style={{ fontSize: 24, lineHeight: 1, position: 'relative' }}>
-        {icon}
+      <span style={{ lineHeight: 1, position: 'relative', color: isActive ? GREEN : '#999' }}>
+        <Icon size={25} />
         {showDot && <span style={{ position: 'absolute', top: -2, right: -4, width: 9, height: 9, borderRadius: '50%', background: '#e24b4a', border: '1.5px solid #fff' }} />}
       </span>
       <span style={{ fontSize: 11, color: isActive ? GREEN : '#999', fontFamily: 'inherit', fontWeight: isActive ? 600 : 400 }}>{label}</span>
@@ -123,9 +136,9 @@ function BottomNav({ active, onHome, onArchive, onRegolamento, hasNewRegolamento
   );
   return (
     <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '0.5px solid #e0e0e0', display: 'flex', zIndex: 100, paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {btn('Home', '🏠', active === 'home', onHome, false)}
-      {btn('Archivio', '📁', active === 'archive', onArchive, false)}
-      {btn('Regolamento', '📄', active === 'regolamento', onRegolamento, hasNewRegolamento)}
+      {btn('Home', IcHome, active === 'home', onHome, false)}
+      {btn('Archivio', IcArchivio, active === 'archive', onArchive, false)}
+      {btn('Regolamento', IcRegolamento, active === 'regolamento', onRegolamento, hasNewRegolamento)}
     </div>
   );
 }
@@ -539,7 +552,7 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>📅 I tuoi impieghi di oggi</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}><IcCalendario size={15} /> I tuoi impieghi di oggi</div>
       {impieghi.length === 0 && (
         <div style={{ ...GS.card, color: '#999', fontSize: 13, textAlign: 'center', padding: '16px' }}>Nessun impiego in programma oggi</div>
       )}
@@ -647,20 +660,22 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
         <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Nuovo rapporto</div>
         <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', marginBottom: 12, padding: '18px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📋</div>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: GREEN, flexShrink: 0 }}><IcFirma size={26} /></div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>PDF – Con firma cliente</div>
             </div>
+            <span style={{ marginLeft: 'auto', color: '#999', flexShrink: 0 }}><IcChevron size={20} /></span>
           </div>
         </div>
         <div onClick={() => onNew('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', padding: '18px 16px', marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📝</div>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', flexShrink: 0 }}><IcTesto size={26} /></div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Solo testo · Nessuna firma</div>
             </div>
+            <span style={{ marginLeft: 'auto', color: '#999', flexShrink: 0 }}><IcChevron size={20} /></span>
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
@@ -690,22 +705,24 @@ function ReportTypeScreen({ impiego, onSelect, onHome, onArchive, onRegolamento,
         <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto:</p>
         <div onClick={() => onSelect('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: '1.5px solid #ccc', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📋</div>
+            <div style={{ width: 44, height: 44, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', color: GREEN, flexShrink: 0 }}><IcFirma size={24} /></div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: '#555', fontWeight: 500, marginBottom: 4 }}>PDF – Con firma cliente</div>
               <div style={{ fontSize: 12, color: '#777' }}>Rapporto con firma digitale del cliente.</div>
             </div>
+            <span style={{ marginLeft: 'auto', color: '#999', flexShrink: 0, alignSelf: 'center' }}><IcChevron size={20} /></span>
           </div>
         </div>
         <div onClick={() => onSelect('solo_testo')} style={{ ...GS.card, cursor: 'pointer', border: '1.5px solid #ccc' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 11, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📝</div>
+            <div style={{ width: 44, height: 44, borderRadius: 11, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444', flexShrink: 0 }}><IcTesto size={24} /></div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>Rapporto di Servizio</div>
               <div style={{ fontSize: 13, color: '#555', fontWeight: 500, marginBottom: 4 }}>Solo testo · Nessuna firma cliente</div>
               <div style={{ fontSize: 12, color: '#777' }}>Senza firma del cliente.</div>
             </div>
+            <span style={{ marginLeft: 'auto', color: '#999', flexShrink: 0, alignSelf: 'center' }}><IcChevron size={20} /></span>
           </div>
         </div>
       </div>
