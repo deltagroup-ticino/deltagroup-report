@@ -526,12 +526,12 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
 
   return (
     <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>📅 I tuoi impieghi di oggi</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>📅 I tuoi impieghi di oggi</div>
       {impieghi.length === 0 && (
         <div style={{ ...GS.card, color: '#999', fontSize: 13, textAlign: 'center', padding: '16px' }}>Nessun impiego in programma oggi</div>
       )}
       {impieghi.map(imp => (
-        <div key={imp.shift_id} style={{ ...GS.card, border: imp.report_inviato ? '0.5px solid #e0e0e0' : imp.report_atteso ? '1.5px solid #e8a33d' : '0.5px solid #e0e0e0' }}>
+        <div key={imp.shift_id} style={{ ...GS.card, border: imp.report_inviato ? '0.5px solid #e0e0e0' : imp.report_atteso ? '1.5px solid #e8a33d' : `1.5px solid ${GREEN}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
             <div style={{ fontWeight: 500, fontSize: 15 }}>{imp.service_name}</div>
             <div style={{ fontSize: 14, color: '#333', whiteSpace: 'nowrap' }}>{imp.ora_inizio}–{imp.ora_fine}</div>
@@ -629,13 +629,15 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
 
         <ImpieghiOggi collab={collab} onFaiRapporto={onImpiego} />
 
+        {/* I due rapporti liberi sono PARI GRADO (decisione Paolo 15.08):
+            l'evidenza visiva va al blocco impieghi di oggi qui sopra */}
         <div style={{ fontSize: 10, fontWeight: 600, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Nuovo rapporto</div>
-        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `2px solid ${GREEN}`, marginBottom: 12, padding: '18px 16px' }}>
+        <div onClick={() => onNew('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: '1px solid #ddd', marginBottom: 12, padding: '18px 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>📋</div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 3 }}>Rapporto di Servizio</div>
-              <div style={{ fontSize: 13, color: GREEN, fontWeight: 500 }}>PDF – Con firma cliente</div>
+              <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>PDF – Con firma cliente</div>
             </div>
           </div>
         </div>
@@ -673,12 +675,12 @@ function ReportTypeScreen({ impiego, onSelect, onHome, onArchive, onRegolamento,
           </div>
         )}
         <p style={{ color: '#555', fontSize: 14, marginBottom: 20 }}>Seleziona il tipo di rapporto:</p>
-        <div onClick={() => onSelect('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: `1.5px solid ${GREEN}`, marginBottom: 14 }}>
+        <div onClick={() => onSelect('pdf_firma')} style={{ ...GS.card, cursor: 'pointer', border: '1.5px solid #ccc', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 11, background: GREEN_LIGHT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📋</div>
             <div>
               <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 4 }}>Rapporto di Servizio</div>
-              <div style={{ fontSize: 13, color: GREEN, fontWeight: 500, marginBottom: 4 }}>PDF – Con firma cliente</div>
+              <div style={{ fontSize: 13, color: '#555', fontWeight: 500, marginBottom: 4 }}>PDF – Con firma cliente</div>
               <div style={{ fontSize: 12, color: '#777' }}>Rapporto con firma digitale del cliente.</div>
             </div>
           </div>
