@@ -38,7 +38,7 @@ function getSession() {
     return s;
   } catch { return null; }
 }
-function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); }
+function saveSession(data) { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); localStorage.setItem('drUsedOnce', '1'); }
 function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
 // ── RAPPORTO IN CORSO (bozza sul telefono) ──────────────────────────
@@ -319,6 +319,11 @@ function PinScreen({ onLogin, onBack }) {
 
 function LoginScreen({ onLogin, onFirstAccess }) {
   const [screen, setScreen] = useState('welcome');
+  // Il bottone "Primo accesso" serve una volta sola: dopo il primo utilizzo
+  // su questo dispositivo sparisce e resta solo un link discreto in fondo
+  // (per i casi rari: PIN resettato dall'ufficio, telefono passato a un
+  // nuovo collaboratore) — decisione Paolo 15.08.
+  const giaUsato = !!localStorage.getItem('drUsedOnce');
   if (screen === 'pin') return <PinScreen onLogin={onLogin} onBack={() => setScreen('welcome')} />;
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
@@ -335,7 +340,10 @@ function LoginScreen({ onLogin, onFirstAccess }) {
         <button onClick={() => setScreen('pin')} style={{ ...GS.btnGreen, marginBottom: 12, fontSize: 16, padding: 17 }}>
           🔐 Accedi con PIN
         </button>
-        <button onClick={onFirstAccess} style={{ ...GS.btnOutline }}>Primo accesso</button>
+        {!giaUsato && <button onClick={onFirstAccess} style={{ ...GS.btnOutline }}>Primo accesso</button>}
+        {giaUsato && <div style={{ textAlign: 'center', marginTop: 6 }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); onFirstAccess(); }} style={{ fontSize: 12, color: '#aaa', textDecoration: 'underline', fontFamily: 'inherit' }}>È il tuo primo accesso?</a>
+        </div>}
       </div>
     </div>
   );
