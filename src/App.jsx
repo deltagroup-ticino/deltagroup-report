@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.6';
+const APP_VERSION = 'v1.7';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -283,6 +283,8 @@ function PinScreen({ onLogin, onBack }) {
       if (!data) { setError('PIN non riconosciuto. Riprova.'); setPin(''); setLoading(false); return; }
       if (!data.pin_revealed) { setError('PIN reimpostato. Torna indietro e usa "Primo accesso".'); setPin(''); setLoading(false); return; }
       saveSession({ collabId: data.id, collabName: data.agent_name, regulationVersion: data.regulation_version });
+      // Traccia dell'ultimo accesso (adozione app, admin): fire-and-forget
+      c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
       onLogin(data);
     } catch { setError('Errore di connessione. Riprova.'); setLoading(false); }
   };
@@ -1345,6 +1347,8 @@ export default function App() {
       if(data){
         if(!data.pin_revealed){clearSession();setScreen('login');return;}
         setCollab(data);
+        // Riapertura con sessione valida = accesso: aggiorna last_login_at
+        c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
         const c2 = await sb();
         const { data: reg } = await c2.from('report_regulations').select('version').order('version',{ascending:false}).limit(1).single();
         if (reg) setLatestRegVersion(reg.version);
