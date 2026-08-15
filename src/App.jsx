@@ -64,7 +64,10 @@ const isLate = (serviceDateISO) => { const svc = new Date(serviceDateISO + 'T00:
 const MONTHS = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 
 const GS = {
-  header: { background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 },
+  // paddingTop con safe-area: su iOS (viewport-fit=cover + status bar
+  // translucent) spinge il contenuto sotto notch/Dynamic Island; su
+  // Android env() vale 0 → identico a prima, al pixel.
+  header: { background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 10 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: 500 },
   body: { background: '#f5f5f5', minHeight: '100vh' },
   card: { background: '#fff', borderRadius: 12, padding: '14px 16px', marginBottom: 10, border: '0.5px solid #e0e0e0' },
@@ -239,7 +242,7 @@ function SignatureOverlay({ title, onConfirm, onCancel }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: GREEN, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: GREEN, padding: '14px 16px', paddingTop: 'calc(14px + env(safe-area-inset-top))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ color: '#fff', fontSize: 16, fontWeight: 500 }}>{title}</span>
         <button onClick={onCancel} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, color: '#fff', padding: '6px 12px', cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Annulla</button>
       </div>
@@ -298,7 +301,7 @@ function PinScreen({ onLogin, onBack }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ background: GREEN, padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 10 }}>
         <BackBtn onClick={onBack} />
         <AppName />
       </div>
@@ -329,7 +332,7 @@ function LoginScreen({ onLogin, onFirstAccess }) {
   if (screen === 'pin') return <PinScreen onLogin={onLogin} onBack={() => setScreen('welcome')} />;
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ background: GREEN, padding: '50px 24px 40px', textAlign: 'center' }}>
+      <div style={{ background: GREEN, padding: '50px 24px 40px', paddingTop: 'calc(50px + env(safe-area-inset-top))', textAlign: 'center' }}>
         <Logo size={70} />
         <div style={{ marginTop: 16 }}><AppName size="lg" /></div>
         <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 8 }}>Filiale Ticino</div>
@@ -384,7 +387,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   if (step === 'confirm') {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-        <div style={{ background: GREEN, padding: '13px 16px' }}>
+        <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
           <AppName />
         </div>
         <div style={{ padding: '40px 24px', textAlign: 'center' }}>
@@ -400,7 +403,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   if (step === 'pin') {
     return (
       <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-        <div style={{ background: GREEN, padding: '13px 16px' }}>
+        <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
           <AppName />
         </div>
         <div style={{ padding: '24px' }}>
@@ -424,7 +427,7 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
   // FIX 1: istruzioni chiare per formato maiuscolo
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ background: GREEN, padding: '13px 16px' }}>
+      <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
         <AppName />
       </div>
       <div style={{ padding: '24px' }}>
@@ -483,7 +486,7 @@ function RegulationScreen({ collab, onAccepted }) {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f5', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: GREEN, padding: '13px 16px' }}>
+      <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
         <AppName />
         <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 }}>Regolamento compilazione rapporti</div>
       </div>
@@ -597,7 +600,7 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
 
   return (
     <div style={{ ...GS.body, minHeight: '100vh', paddingBottom: 70 }}>
-      <div style={{ background: GREEN, padding: '13px 16px 30px' }}>
+      <div style={{ background: GREEN, padding: '13px 16px 30px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
         <AppName />
       </div>
       <div style={{ padding: '0 16px' }}>
@@ -1199,7 +1202,7 @@ function ReportDetailScreen({ report, onBack, onHome, onRegolamento, hasNewRegol
   const sentStr = sentAt ? String(sentAt.getDate()).padStart(2,'0')+'/'+String(sentAt.getMonth()+1).padStart(2,'0')+'/'+sentAt.getFullYear()+' alle '+String(sentAt.getHours()).padStart(2,'0')+':'+String(sentAt.getMinutes()).padStart(2,'0') : null;
   return (
     <div style={{...GS.body, paddingBottom:70}}>
-      <div style={{background:GREEN,padding:'13px 16px'}}>
+      <div style={{background:GREEN,padding:'13px 16px',paddingTop:'calc(13px + env(safe-area-inset-top))'}}>
         <AppName />
         <div style={{color:'rgba(255,255,255,0.7)',fontSize:11,marginTop:2}}>{report.report_number}</div>
       </div>
@@ -1313,7 +1316,7 @@ function RegolamentoReadScreen({ collab, onHome, onArchive, onRegolamento, hasNe
 
   return (
     <div style={{ ...GS.body, paddingBottom: 80 }}>
-      <div style={{ background: GREEN, padding: '13px 16px' }}>
+      <div style={{ background: GREEN, padding: '13px 16px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
         <AppName />
         <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 3 }}>Regolamento compilazione rapporti</div>
       </div>
