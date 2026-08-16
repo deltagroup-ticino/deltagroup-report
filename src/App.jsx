@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.14';
+const APP_VERSION = 'v1.15';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -840,13 +840,15 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
         <span style={{ ...GS.headerTitle, marginLeft: 8, fontSize: 13, opacity: 0.85 }}>{reportType === 'pdf_firma' ? 'PDF – Firma cliente' : 'Solo testo'}</span>
       </div>
       <div style={{ padding: 16 }}>
+        {/* Banner solo informativo: il "✕ scollega" è stato rimosso su
+            richiesta Paolo 16.08 (rapporto orfano = impiego che resta
+            "in attesa" in PLAN; chi vuole un rapporto libero usa la card
+            "Nuovo rapporto", chi ha toccato l'impiego sbagliato torna in
+            home e sceglie quello giusto). */}
         {planShiftId && (
-          <div style={{ ...GS.card, background: GREEN_LIGHT, border: `0.5px solid ${GREEN}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 11, color: GREEN, fontWeight: 600, marginBottom: 2 }}>📅 COLLEGATO ALL'IMPIEGO PLAN</div>
-              <div style={{ fontSize: 13 }}>{impiego?.service_name} · {impiego?.ora_inizio}–{impiego?.ora_fine}</div>
-            </div>
-            <button onClick={() => setPlanShiftId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: 12, textDecoration: 'underline', fontFamily: 'inherit', flexShrink: 0, touchAction: 'manipulation' }}>✕ scollega</button>
+          <div style={{ ...GS.card, background: GREEN_LIGHT, border: `0.5px solid ${GREEN}` }}>
+            <div style={{ fontSize: 11, color: GREEN, fontWeight: 600, marginBottom: 2 }}>📅 COLLEGATO ALL'IMPIEGO PLAN</div>
+            <div style={{ fontSize: 13 }}>{impiego?.service_name} · {impiego?.ora_inizio}–{impiego?.ora_fine}</div>
           </div>
         )}
         <div style={GS.card}>
