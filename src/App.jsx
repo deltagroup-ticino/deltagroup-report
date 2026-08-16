@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.9';
+const APP_VERSION = 'v1.10';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -213,20 +213,48 @@ function SignatureOverlay({ title, onConfirm, onCancel }) {
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
     const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    // Prepara (o ri-prepara) la tela alla dimensione visibile attuale.
+    // preserve=true: i tratti già disegnati vengono riportati in scala,
+    // SENZA deformarli (contain) — serve quando si ruota il telefono.
+    const setup = (preserve) => {
+      if (!canvas || !canvas.offsetWidth) return;
+      const prev = preserve && canvas.width > 0 ? canvas.toDataURL('image/png') : null;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
       const ctx = canvas.getContext('2d');
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.scale(dpr, dpr);
       ctx.strokeStyle = '#111';
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-    }
+      if (prev) {
+        const img = new Image();
+        img.onload = () => {
+          const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+          const iw = img.width / dpr, ih = img.height / dpr;
+          const s = Math.min(cw / iw, ch / ih, 1);
+          ctx.drawImage(img, (cw - iw * s) / 2, (ch - ih * s) / 2, iw * s, ih * s);
+        };
+        img.src = prev;
+      }
+    };
+    setup(false);
+    // Rotazione del telefono per firmare in orizzontale (richiesta Paolo
+    // 16.08): prima la tela restava alle dimensioni iniziali e i tratti
+    // uscivano storti/deformati nel rapporto. Ora al cambio di
+    // orientamento la tela si riallinea e la firma resta dritta.
+    let t = null;
+    const onResize = () => { clearTimeout(t); t = setTimeout(() => setup(true), 250); };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
     return () => {
       document.body.style.overflow = '';
       document.body.style.position = '';
       document.body.style.width = '';
+      clearTimeout(t);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
     };
   }, []);
 
