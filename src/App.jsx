@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.15';
+const APP_VERSION = 'v1.16';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -791,9 +791,18 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
   const [covOpen, setCovOpen] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Autosalvataggio bozza a ogni modifica: il rapporto resta "in corso"
-  // sul telefono finché non viene inviato (o scartato dalla home)
+  // Autosalvataggio bozza: il rapporto resta "in corso" sul telefono
+  // finché non viene inviato (o scartato dalla home). La bozza nasce solo
+  // alla PRIMA MODIFICA VERA (fix 16.08): aprire un form precompilato e
+  // richiuderlo senza toccare nulla non deve creare "rapporti in corso"
+  // fantasma (né chiedere poi "sovrascrivere?" a vuoto).
+  const _initialForm = useRef(JSON.stringify(form));
   useEffect(() => {
+    const toccato = !!draft
+      || JSON.stringify(form) !== _initialForm.current
+      || cronoOn || crono.length > 0
+      || Object.values(breakMins).some(v => Number(v) > 0);
+    if (!toccato) return;
     saveDraft(collab.id, { reportType, impiego: impiego || null, form, agents, breakMins, planShiftId, cronoOn, crono });
   }, [form, agents, breakMins, planShiftId, cronoOn, crono]);// eslint-disable-line
 
