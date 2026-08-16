@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.13';
+const APP_VERSION = 'v1.14';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -644,8 +644,14 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
 
   return (
     <div style={{ ...GS.body, minHeight: '100vh', paddingBottom: 70 }}>
-      <div style={{ background: GREEN, padding: '13px 16px 30px', paddingTop: 'calc(13px + env(safe-area-inset-top))' }}>
+      <div style={{ background: GREEN, padding: '13px 16px 30px', paddingTop: 'calc(13px + env(safe-area-inset-top))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <AppName />
+        {/* Refresh manuale (richiesta Paolo 16.08): su iPhone la PWA non ha
+            il tira-giù-per-aggiornare — senza questo bisogna chiudere e
+            riaprire l'app per vedere i dati freschi */}
+        <button onClick={() => window.location.reload()} title="Aggiorna" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 9, width: 38, height: 38, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', touchAction: 'manipulation', flexShrink: 0 }}>
+          <IcSvg size={20}><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></IcSvg>
+        </button>
       </div>
       <div style={{ padding: '0 16px' }}>
         <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: -16, border: '0.5px solid #e0e0e0', boxShadow: '0 4px 14px rgba(0,0,0,0.07)', marginBottom: 36 }}>
