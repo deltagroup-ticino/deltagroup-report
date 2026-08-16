@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.11';
+const APP_VERSION = 'v1.12';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -1277,7 +1277,7 @@ function ReportDetailScreen({ report, onBack, onHome, onRegolamento, hasNewRegol
         <div style={{color:'rgba(255,255,255,0.7)',fontSize:11,marginTop:2}}>{report.report_number}</div>
       </div>
       <div style={{padding:16}}>
-        {sentStr && <div style={{background:GREEN_LIGHT,borderRadius:9,padding:'8px 13px',marginBottom:14,fontSize:12,color:'#1a5c1a'}}>📤 Inviato il {sentStr}</div>}
+        {sentStr && <div style={{background:GREEN_LIGHT,borderRadius:9,padding:'8px 13px',marginBottom:14,fontSize:12,color:'#1a5c1a'}}>📤 Inviato{report.submitted_by_name?` da ${report.submitted_by_name}`:''} il {sentStr}</div>}
         <div style={GS.card}>
           <Row label="Data servizio" value={fromISO(report.service_date)} />
           <Row label="Agenti" value={agenti} />
@@ -1310,12 +1310,20 @@ function ArchiveScreen({ collab, onHome, onOpenReport, onRegolamento, hasNewRego
   useEffect(() => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
-    sb().then(c => c.from('dr_reports')
-      .select('id,report_number,service_date,submitted_at,client_name,address,location,start_time,end_time,report_type,has_break,break_covered_by,break_start,break_end,notes,agents_json,submitted_by_name')
-      .eq('submitted_by_id', collab.id)
-      .gte('service_date', thirtyDaysAgo.toISOString().split('T')[0])
-      .order('service_date', {ascending:false})
-    ).then(({data}) => { if(data) setReports(data); setLoading(false); });
+    // L'archivio mostra i rapporti di cui il collaboratore è PARTECIPANTE
+    // (tra gli agenti), non solo quelli inviati da lui — richiesta Paolo
+    // 16.08: l'impiego a 3 finisce nell'archivio di tutti e 3.
+    const COLS = 'id,report_number,service_date,submitted_at,client_name,address,location,start_time,end_time,report_type,has_break,break_covered_by,break_start,break_end,notes,agents_json,submitted_by_id,submitted_by_name';
+    const dal = thirtyDaysAgo.toISOString().split('T')[0];
+    sb().then(c => Promise.all([
+      c.from('dr_reports').select(COLS).eq('submitted_by_id', collab.id).gte('service_date', dal),
+      c.from('dr_reports').select(COLS).contains('agents_json', JSON.stringify([{ id: collab.id }])).gte('service_date', dal),
+    ])).then(([a, b]) => {
+      const byId = {};
+      [...(a.data || []), ...(b.data || [])].forEach(r => { byId[r.id] = r; });
+      setReports(Object.values(byId).sort((x, y) => y.service_date.localeCompare(x.service_date)));
+      setLoading(false);
+    });
   }, []);
 
   const grouped = {};
@@ -1351,7 +1359,7 @@ function ArchiveScreen({ collab, onHome, onOpenReport, onRegolamento, hasNewRego
                   {r.address}{r.start_time&&r.end_time?' · '+r.start_time+'–'+r.end_time:r.start_time?' · '+r.start_time:''}
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                  <span style={{fontSize:10,color:'#888'}}>📤 {fmtSent(r.submitted_at)}</span>
+                  <span style={{fontSize:10,color:'#888'}}>📤 {fmtSent(r.submitted_at)}{r.submitted_by_id!==collab.id&&r.submitted_by_name?` · da ${r.submitted_by_name}`:''}</span>
                   <span style={{fontSize:10,padding:'2px 7px',borderRadius:4,fontWeight:500,background:r.report_type==='pdf_firma'?GREEN_LIGHT:'#f0f0f0',color:r.report_type==='pdf_firma'?'#1a5c1a':'#555'}}>
                     {r.report_type==='pdf_firma'?'PDF':'Testo'}
                   </span>
