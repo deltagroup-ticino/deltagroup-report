@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.16';
+const APP_VERSION = 'v1.17';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -323,12 +323,20 @@ function PinScreen({ onLogin, onBack }) {
     setLoading(true); setError('');
     try {
       const c = await sb();
-      const { data } = await c.from('report_collaborators').select('*').eq('pin', pin).eq('is_active', true).single();
+      // Login via funzione sicura (report_login: verifica il PIN lato DB
+      // e aggiorna last_login_at). Fallback alla query diretta finché lo
+      // script SQL "fase A" non è eseguito.
+      let data = null;
+      const { data: rows, error: rpcErr } = await c.rpc('report_login', { p_pin: pin });
+      if (!rpcErr) data = rows && rows[0];
+      else {
+        const { data: legacy } = await c.from('report_collaborators').select('*').eq('pin', pin).eq('is_active', true).single();
+        data = legacy;
+        if (data) c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
+      }
       if (!data) { setError('PIN non riconosciuto. Riprova.'); setPin(''); setLoading(false); return; }
       if (!data.pin_revealed) { setError('PIN reimpostato. Torna indietro e usa "Primo accesso".'); setPin(''); setLoading(false); return; }
-      saveSession({ collabId: data.id, collabName: data.agent_name, regulationVersion: data.regulation_version });
-      // Traccia dell'ultimo accesso (adozione app, admin): fire-and-forget
-      c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
+      saveSession({ collabId: data.id, collabName: data.agent_name, regulationVersion: data.regulation_version, pin: data.pin });
       onLogin(data);
     } catch { setError('Errore di connessione. Riprova.'); setLoading(false); }
   };
@@ -408,19 +416,47 @@ function FirstAccessScreen({ onBack, onPinRevealed }) {
     setLoading(true); setError('');
     try {
       const c = await sb();
-      const { data } = await c.from('report_collaborators').select('*').ilike('agent_name', `%${name.trim()}%`).eq('is_active', true);
-      if (!data || data.length === 0) { setError('Nessun collaboratore trovato. Verifica di scrivere COGNOME in maiuscolo seguito dal Nome, esattamente come sei registrato in azienda.'); setLoading(false); return; }
-      if (data.length > 1) { setError('Trovati più collaboratori con questo nome. Aggiungi più lettere per precisare la ricerca, oppure contatta l\'ufficio.'); setLoading(false); return; }
-      const collab = data[0];
-      if (collab.pin_revealed) { setError('Il PIN per questo account è già stato visualizzato. Contatta l\'ufficio se hai dimenticato il PIN.'); setLoading(false); return; }
-      setCollabData(collab);
-      await c.from('report_collaborators').update({ pin_revealed: true, pin_revealed_at: new Date().toISOString() }).eq('id', collab.id);
-      setStep('pin');
+      // Ricerca via funzione sicura: NON espone il PIN e non marca più
+      // "rivelato" alla sola ricerca (solo a PIN confermato, passo 2).
+      // Fallback alla query diretta finché lo script "fase A" non è live.
+      const { data: found, error: rpcErr } = await c.rpc('report_first_access_find', { p_name: name.trim() });
+      if (!rpcErr && found && found[0]) {
+        const f = found[0];
+        if (!f.matches) { setError('Nessun collaboratore trovato. Verifica di scrivere COGNOME in maiuscolo seguito dal Nome, esattamente come sei registrato in azienda.'); setLoading(false); return; }
+        if (f.matches > 1) { setError('Trovati più collaboratori con questo nome. Aggiungi più lettere per precisare la ricerca, oppure contatta l\'ufficio.'); setLoading(false); return; }
+        if (f.already_revealed) { setError('Il PIN per questo account è già stato visualizzato. Contatta l\'ufficio se hai dimenticato il PIN.'); setLoading(false); return; }
+        setCollabData({ id: f.collab_id, agent_name: f.agent_name });
+        setStep('pin');
+      } else {
+        const { data } = await c.from('report_collaborators').select('*').ilike('agent_name', `%${name.trim()}%`).eq('is_active', true);
+        if (!data || data.length === 0) { setError('Nessun collaboratore trovato. Verifica di scrivere COGNOME in maiuscolo seguito dal Nome, esattamente come sei registrato in azienda.'); setLoading(false); return; }
+        if (data.length > 1) { setError('Trovati più collaboratori con questo nome. Aggiungi più lettere per precisare la ricerca, oppure contatta l\'ufficio.'); setLoading(false); return; }
+        const collab = data[0];
+        if (collab.pin_revealed) { setError('Il PIN per questo account è già stato visualizzato. Contatta l\'ufficio se hai dimenticato il PIN.'); setLoading(false); return; }
+        setCollabData(collab);
+        await c.from('report_collaborators').update({ pin_revealed: true, pin_revealed_at: new Date().toISOString() }).eq('id', collab.id);
+        setStep('pin');
+      }
     } catch { setError('Errore di connessione. Riprova.'); }
     setLoading(false);
   };
 
-  const confirmPin = () => {
+  const confirmPin = async () => {
+    setError('');
+    // Conferma via funzione sicura: il PIN è verificato lato DB e solo
+    // allora l'account viene marcato "rivelato". Fallback: confronto
+    // locale (il vecchio flusso aveva già il PIN in collabData).
+    if (!collabData.pin) {
+      try {
+        const c = await sb();
+        const { data: rows, error: rpcErr } = await c.rpc('report_first_access_confirm', { p_collab_id: collabData.id, p_pin: pinInput });
+        if (rpcErr) { setError('Errore di connessione. Riprova.'); return; }
+        if (!rows || !rows[0]) { setError('PIN errato. Riprova.'); return; }
+        setCollabData(rows[0]);
+        setStep('confirm');
+      } catch { setError('Errore di connessione. Riprova.'); }
+      return;
+    }
     if (pinInput !== collabData.pin) { setError('PIN errato. Riprova.'); return; }
     setStep('confirm');
   };
@@ -520,8 +556,10 @@ function RegulationScreen({ collab, onAccepted }) {
   const accept = async () => {
     setLoading(true);
     const c = await sb();
-    await c.from('report_collaborators').update({ regulation_accepted: true, regulation_accepted_at: new Date().toISOString(), regulation_version: REGULATION_VERSION }).eq('id', collab.id);
-    saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION });
+    // Via funzione sicura, fallback alla query diretta (fase A)
+    const { error: rpcErr } = await c.rpc('report_accept_regulation', { p_collab_id: collab.id, p_pin: collab.pin, p_version: REGULATION_VERSION });
+    if (rpcErr) await c.from('report_collaborators').update({ regulation_accepted: true, regulation_accepted_at: new Date().toISOString(), regulation_version: REGULATION_VERSION }).eq('id', collab.id);
+    saveSession({ collabId: collab.id, collabName: collab.agent_name, regulationVersion: REGULATION_VERSION, pin: collab.pin });
     onAccepted();
   };
 
@@ -807,7 +845,13 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
   }, [form, agents, breakMins, planShiftId, cronoOn, crono]);// eslint-disable-line
 
   useEffect(() => {
-    sb().then(c => c.from('report_collaborators').select('id,agent_name').eq('is_active', true).order('agent_name')).then(({ data }) => {
+    // Elenco nomi via funzione sicura (credenziali richieste), fallback
+    // alla query diretta finché lo script "fase A" non è eseguito
+    sb().then(async c => {
+      const { data: rows, error: rpcErr } = await c.rpc('report_collab_names', { p_collab_id: collab.id, p_pin: collab.pin });
+      if (!rpcErr && rows) return { data: rows };
+      return c.from('report_collaborators').select('id,agent_name').eq('is_active', true).order('agent_name');
+    }).then(({ data }) => {
       if (data) {
         setAllAgents(data);
         // Ripresa bozza: gli agenti sono già quelli salvati, non si toccano
@@ -1414,8 +1458,12 @@ function RegolamentoReadScreen({ collab, onHome, onArchive, onRegolamento, hasNe
       if (data) {
         setRegulation(data.content);
         // Salva in Supabase che il collaboratore ha letto questa versione
+        // (funzione sicura, fallback alla query diretta — fase A)
         if (data.version > (collab.regulation_version || 0)) {
-          sb().then(c2 => c2.from('report_collaborators').update({ regulation_version: data.version }).eq('id', collab.id));
+          sb().then(async c2 => {
+            const { error: rpcErr } = await c2.rpc('report_accept_regulation', { p_collab_id: collab.id, p_pin: collab.pin, p_version: data.version });
+            if (rpcErr) c2.from('report_collaborators').update({ regulation_version: data.version }).eq('id', collab.id).then(() => {}, () => {});
+          });
         }
         onRead(data.version);
       }
@@ -1454,12 +1502,26 @@ export default function App() {
     if(!session){setScreen('login');return;}
     try {
       const c = await sb();
-      const {data} = await c.from('report_collaborators').select('*').eq('id',session.collabId).eq('is_active',true).single();
+      // Ripristino sessione via funzione sicura (il PIN salvato nella
+      // sessione locale è la credenziale); fallback alla query diretta per
+      // le sessioni vecchie senza PIN o finché lo script "fase A" non è
+      // eseguito. last_login_at lo aggiorna la funzione stessa.
+      let data = null;
+      if (session.pin) {
+        const { data: rows, error: rpcErr } = await c.rpc('report_login', { p_pin: session.pin });
+        if (!rpcErr) {
+          data = rows && rows[0];
+          if (data && data.id !== session.collabId) data = null; // PIN riassegnato? fuori.
+        }
+      }
+      if (!data) {
+        const {data: legacy} = await c.from('report_collaborators').select('*').eq('id',session.collabId).eq('is_active',true).single();
+        data = legacy;
+        if (data) c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
+      }
       if(data){
         if(!data.pin_revealed){clearSession();setScreen('login');return;}
         setCollab(data);
-        // Riapertura con sessione valida = accesso: aggiorna last_login_at
-        c.from('report_collaborators').update({ last_login_at: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {});
         const c2 = await sb();
         const { data: reg } = await c2.from('report_regulations').select('version').order('version',{ascending:false}).limit(1).single();
         if (reg) setLatestRegVersion(reg.version);
@@ -1486,7 +1548,7 @@ export default function App() {
   if(screen==='splash') content = <SplashScreen onDone={checkSession} />;
   else if(screen==='login') content = <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
   else if(screen==='firstAccess') content = <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
-  else if(screen==='regulation') content = <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION});setScreen('home');}} />;
+  else if(screen==='regulation') content = <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION,pin:collab.pin});setScreen('home');}} />;
   else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(imp);setScreen('tipoImpiego');}} onResumeDraft={(d)=>{setDraftData(d);setPlanImpiego(d.impiego||null);setReportType(d.reportType||'solo_testo');setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='tipoImpiego') content = <ReportTypeScreen impiego={planImpiego} onSelect={(t)=>{setReportType(t);setScreen('form');}} onHome={()=>{setPlanImpiego(null);goHome();}} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='form') content = <ReportFormScreen key={draftData?'draft':'new-'+(planImpiego?.shift_id||reportType)} collab={collab} reportType={reportType} impiego={planImpiego} draft={draftData} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
