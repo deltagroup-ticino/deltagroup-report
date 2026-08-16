@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.17';
+const APP_VERSION = 'v1.18';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -398,6 +398,9 @@ function LoginScreen({ onLogin, onFirstAccess }) {
         {giaUsato && <div style={{ textAlign: 'center', marginTop: 6 }}>
           <a href="#" onClick={(e) => { e.preventDefault(); onFirstAccess(); }} style={{ fontSize: 12, color: '#aaa', textDecoration: 'underline', fontFamily: 'inherit' }}>È il tuo primo accesso?</a>
         </div>}
+        {/* Versione visibile: serve a verificare quale build gira sul
+            telefono (le PWA iOS a volte restano indietro di una versione) */}
+        <p style={{ textAlign: 'center', fontSize: 10, color: '#ccc', marginTop: 16 }}>{APP_VERSION}</p>
       </div>
     </div>
   );
