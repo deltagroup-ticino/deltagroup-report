@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.19';
+const APP_VERSION = 'v1.20';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -862,7 +862,12 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
         const me = data.find(a => a.id === collab.id);
         // Colleghi pianificati sullo stesso impiego PLAN: precompilati,
         // rimovibili con la ✕ (collega assente = lo togli dal rapporto)
-        const colleghi = (impiego?.colleghi || []).map(cl => data.find(a => a.id === cl.id)).filter(a => a && a.id !== collab.id);
+        // Colleghi del servizio/giorno (RPC v7): possono avere orari
+        // diversi dai miei — l'orario viene mostrato accanto al nome
+        const colleghi = (impiego?.colleghi || []).map(cl => {
+          const a = data.find(x => x.id === cl.id);
+          return a ? { ...a, _orari: cl.ora_inizio && cl.ora_fine ? `${cl.ora_inizio}–${cl.ora_fine}` : null } : null;
+        }).filter(a => a && a.id !== collab.id);
         setAgents([...(me ? [me] : []), ...colleghi]);
       }
     });
@@ -916,7 +921,7 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
           <div style={GS.label}>Agenti *</div>
           {agents.map(ag => (
             <div key={ag.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 11px', background: '#f5f5f5', borderRadius: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 14 }}>{ag.agent_name}</span>
+              <span style={{ fontSize: 14 }}>{ag.agent_name}{ag._orari && ag._orari !== `${form.startTime}–${form.endTime}` ? <span style={{ fontSize: 11, color: '#999' }}> ({ag._orari})</span> : null}</span>
               {ag.id !== collab.id && <button onClick={() => removeAgent(ag.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: 16, padding: '0 4px' }}>✕</button>}
             </div>
           ))}
