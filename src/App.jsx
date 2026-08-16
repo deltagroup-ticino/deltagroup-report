@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.18';
+const APP_VERSION = 'v1.19';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -818,8 +818,8 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
   // "rapporto in corso": tutto resta modificabile; l'indirizzo non
   // esiste in PLAN e va inserito a mano.
   const [form, setForm] = useState(() => draft ? draft.form : impiego ? {
-    serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '',
-  } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '' });
+    serviceDate: fromISO(impiego.shift_date), clientName: impiego.service_name || '', location: impiego.luogo || '', address: '', startTime: impiego.ora_inizio || '', endTime: impiego.ora_fine || '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '', internalNotes: '',
+  } : { serviceDate: today(), clientName: '', location: '', address: '', startTime: '', endTime: '', hasBreak: false, breakCoveredBy: '', breakCovMode: '', breakCovId: '', breakCovText: '', breakStart: '', breakEnd: '', notes: '', internalNotes: '' });
   const [planShiftId, setPlanShiftId] = useState(draft ? (draft.planShiftId || null) : impiego ? impiego.shift_id : null);
   // Minuti di pausa per collaboratore (stile app HRS): {collabId: minuti}
   const [breakMins, setBreakMins] = useState(draft?.breakMins || {});
@@ -1069,8 +1069,15 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
           )}
         </div>
         <div style={GS.card}>
-          <div style={GS.label}>Osservazioni</div>
+          <div style={GS.label}>Osservazioni (nel PDF per il cliente)</div>
           <textarea style={{ ...GS.input, height: 90, resize: 'none' }} value={form.notes} onChange={e => upd('notes', e.target.value)} placeholder="Note, descrizione del servizio svolto…" />
+        </div>
+        {/* 🔒 Doppio canale (Paolo 16.08): le note interne NON finiscono
+            nel PDF del cliente — le vedono solo ufficio (ADMIN) e PLAN */}
+        <div style={GS.card}>
+          <div style={GS.label}>🔒 Note per l'ufficio</div>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>Non compaiono nel PDF per il cliente — le legge solo l'ufficio.</div>
+          <textarea style={{ ...GS.input, height: 70, resize: 'none' }} value={form.internalNotes} onChange={e => upd('internalNotes', e.target.value)} placeholder="Segnalazioni interne (es. controllo, anomalie, materiale…)" />
         </div>
         {/* 📓 Cronologia dell'evento: si compila durante il servizio, la
             bozza resta sul telefono finché non si invia il rapporto */}
@@ -1198,12 +1205,13 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
         breaks_json: breaksJson,
         break_covered_by_id: form.hasBreak ? (form.breakCovId || null) : null,
         chronology_json: cronoJson,
+        internal_notes: form.internalNotes || null,
       };
       let { data: rpt, error: err } = await c.from('dr_reports').insert(payload).select().single();
       // Transizione: se le colonne nuove non esistono ancora sul DB,
       // il rapporto va salvato comunque (senza i campi extra)
-      if (err && /breaks_json|break_covered_by_id|chronology_json/i.test(err.message || '')) {
-        const { breaks_json: _b, break_covered_by_id: _c, chronology_json: _k, ...base } = payload;
+      if (err && /breaks_json|break_covered_by_id|chronology_json|internal_notes/i.test(err.message || '')) {
+        const { breaks_json: _b, break_covered_by_id: _c, chronology_json: _k, internal_notes: _n, ...base } = payload;
         ({ data: rpt, error: err } = await c.from('dr_reports').insert(base).select().single());
       }
       if (err) throw err;
@@ -1255,7 +1263,8 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
                 <Row label="Minuti di pausa" value={breaksJson.map(b => `${b.name}: ${b.break_min > 0 ? b.break_min + '′' : '—'}`).join(' · ')} />
               </div>
             )}
-            {form.notes && <div style={{ gridColumn: '1/-1' }}><Row label="Osservazioni" value={form.notes} /></div>}
+            {form.notes && <div style={{ gridColumn: '1/-1' }}><Row label="Osservazioni (nel PDF)" value={form.notes} /></div>}
+            {form.internalNotes && <div style={{ gridColumn: '1/-1' }}><Row label="🔒 Note per l'ufficio (NON nel PDF)" value={form.internalNotes} /></div>}
             {cronoJson && <div style={{ gridColumn: '1/-1' }}>
               <div style={{ fontSize: 10, color: '#888', marginBottom: 3 }}>📓 Cronologia dell'evento</div>
               {cronoJson.map((e, i) => <div key={i} style={{ fontSize: 12, color: '#111', marginBottom: 2 }}><strong style={{ fontFamily: 'monospace' }}>{e.ora}</strong> — {e.testo}</div>)}
