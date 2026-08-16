@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.8';
+const APP_VERSION = 'v1.9';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -751,6 +751,7 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
   const [crono, setCrono] = useState(draft?.crono || []);
   const [recording, setRecording] = useState(false);
   const [covSearch, setCovSearch] = useState('');
+  const [covOpen, setCovOpen] = useState(false);
   const [errors, setErrors] = useState({});
 
   // Autosalvataggio bozza a ogni modifica: il rapporto resta "in corso"
@@ -876,8 +877,8 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
           {/* Copertura pianificata su questo servizio (orari diversi):
               informativa + precompilazione della pausa alla prima attivazione */}
           {impiego?.copertura?.length > 0 && (
-            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#eef4ff', borderRadius: 7, fontSize: 12, color: '#3b5b8f' }}>
-              📟 Pianificato sullo stesso servizio: {impiego.copertura.map(cp => `${cp.name} ${cp.ora_inizio}–${cp.ora_fine}`).join(', ')}
+            <div style={{ marginBottom: 10, padding: '8px 10px', background: '#eef4ff', borderRadius: 7, fontSize: 12, color: '#3b5b8f', lineHeight: 1.5 }}>
+              ☕ Copertura pausa pianificata: <strong>{impiego.copertura.map(cp => `${cp.name} ${cp.ora_inizio}–${cp.ora_fine}`).join(', ')}</strong>{!form.hasBreak && <> — spuntando "Pausa effettuata" viene proposta da sola</>}
             </div>
           )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
@@ -900,26 +901,47 @@ function ReportFormScreen({ collab, reportType, impiego, draft, onNext, onHome, 
               {/* Chi ha coperto la pausa: collaboratore (da elenco → PLAN
                   può riconoscerlo e conteggiare le ore di copertura),
                   cantiere fermo, altra agenzia o testo libero */}
+              {/* Chi ha coperto: stesso pattern di "+ Aggiungi agente" —
+                  riga con la scelta attuale + "cambia", e toccando si apre
+                  ricerca (cognome) + elenco toccabile con in fondo le voci
+                  speciali (cantiere/agenzia/altro). Feedback Paolo 16.08:
+                  il filtro+menu di prima sembrava un campo da compilare. */}
               <div style={{ marginBottom: 10 }}>
                 <div style={GS.label}>Coperta da</div>
-                {/* Filtro per cognome: riduce l'elenco del menu qui sotto
-                    (il collaboratore già scelto resta sempre visibile) */}
-                <input style={{ ...GS.input, marginBottom: 6 }} value={covSearch} onChange={e => setCovSearch(e.target.value)} placeholder="Filtra per cognome… (es. POL)" />
-                <select style={GS.input} value={form.breakCovMode === 'collab' ? form.breakCovId : form.breakCovMode}
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v === '' || v === 'cantiere' || v === 'agenzia' || v === 'altro') setForm(f => ({ ...f, breakCovMode: v, breakCovId: '' }));
-                    else setForm(f => ({ ...f, breakCovMode: 'collab', breakCovId: v }));
-                  }}>
-                  <option value="">— scegli —</option>
-                  <optgroup label="👤 Collaboratori">
-                    {allAgents.filter(a => a.id === form.breakCovId || a.agent_name.toLowerCase().startsWith(covSearch.toLowerCase().trim())).map(a => <option key={a.id} value={a.id}>{a.agent_name}</option>)}
-                  </optgroup>
-                  <option value="cantiere">🏗 Cantiere fermo (nessuna copertura)</option>
-                  <option value="agenzia">🏢 Altra agenzia…</option>
-                  <option value="altro">✏️ Altro…</option>
-                </select>
-                {(form.breakCovMode === 'agenzia' || form.breakCovMode === 'altro') && (
+                {(() => {
+                  const covLabel = form.breakCovMode === 'collab' ? (allAgents.find(a => a.id === form.breakCovId)?.agent_name || null)
+                    : form.breakCovMode === 'cantiere' ? '🏗 Cantiere fermo'
+                    : form.breakCovMode === 'agenzia' ? '🏢 Altra agenzia'
+                    : form.breakCovMode === 'altro' ? '✏️ Altro' : null;
+                  if (!covOpen && covLabel) return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 11px', background: '#f5f5f5', borderRadius: 8 }}>
+                      <span style={{ fontSize: 14 }}>{covLabel}</span>
+                      <button onClick={() => { setCovOpen(true); setCovSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GREEN, fontSize: 13, fontWeight: 500, fontFamily: 'inherit', textDecoration: 'underline', touchAction: 'manipulation' }}>cambia</button>
+                    </div>
+                  );
+                  if (!covOpen) return (
+                    <button onClick={() => { setCovOpen(true); setCovSearch(''); }} style={{ width: '100%', padding: '10px', border: '0.5px dashed #aaa', borderRadius: 8, background: 'none', color: GREEN, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', touchAction: 'manipulation' }}>+ Scegli chi ha coperto la pausa</button>
+                  );
+                  const pick = (mode, id) => { setForm(f => ({ ...f, breakCovMode: mode, breakCovId: id || '' })); setCovOpen(false); setCovSearch(''); };
+                  const riga = { padding: '11px 13px', cursor: 'pointer', fontSize: 13, borderBottom: '0.5px solid #f0f0f0', touchAction: 'manipulation' };
+                  const filtered = allAgents.filter(a => a.agent_name.toLowerCase().startsWith(covSearch.toLowerCase().trim()));
+                  return (
+                    <div>
+                      <input style={GS.input} value={covSearch} onChange={e => setCovSearch(e.target.value)} placeholder="Cerca per cognome…" autoFocus />
+                      <div style={{ maxHeight: 220, overflowY: 'auto', border: '0.5px solid #ddd', borderRadius: 8, marginTop: 4 }}>
+                        {filtered.slice(0, 20).map(a => (
+                          <div key={a.id} onClick={() => pick('collab', a.id)} style={riga}>{a.agent_name}</div>
+                        ))}
+                        {filtered.length === 0 && <div style={{ padding: '10px 13px', color: '#888', fontSize: 12 }}>Nessun collaboratore trovato</div>}
+                        <div onClick={() => pick('cantiere')} style={{ ...riga, background: '#fafafa' }}>🏗 Cantiere fermo (nessuna copertura)</div>
+                        <div onClick={() => pick('agenzia')} style={{ ...riga, background: '#fafafa' }}>🏢 Altra agenzia…</div>
+                        <div onClick={() => pick('altro')} style={{ ...riga, background: '#fafafa', borderBottom: 'none' }}>✏️ Altro…</div>
+                      </div>
+                      <button onClick={() => setCovOpen(false)} style={{ ...GS.btnGray, marginTop: 6, padding: 8, fontSize: 12 }}>Annulla</button>
+                    </div>
+                  );
+                })()}
+                {(form.breakCovMode === 'agenzia' || form.breakCovMode === 'altro') && !covOpen && (
                   <input style={{ ...GS.input, marginTop: 6 }} value={form.breakCovText} onChange={e => upd('breakCovText', e.target.value)} placeholder={form.breakCovMode === 'agenzia' ? 'Nome agenzia' : 'Chi ha coperto la pausa'} />
                 )}
               </div>
