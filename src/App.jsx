@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.10';
+const APP_VERSION = 'v1.11';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -594,6 +594,9 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
             {imp.da_ieri && <span style={{ fontSize: 11, background: '#eef1f7', color: '#4a5a7a', borderRadius: 6, padding: '3px 8px' }}>🌙 iniziato ieri</span>}
             {imp.report_atteso && !imp.report_inviato && <span style={{ fontSize: 11, background: '#faeeda', color: '#854f0b', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>📄 Rapporto atteso</span>}
+            {/* Ai NON designati si mostra CHI è l'incaricato (richiesta
+                Paolo 16.08): sanno a chi tocca, e chi sostituire se serve */}
+            {!imp.report_atteso && !imp.report_inviato && imp.redattore && <span style={{ fontSize: 11, background: '#f0f0f0', color: '#555', borderRadius: 6, padding: '3px 8px' }}>📄 Incaricato del rapporto: {imp.redattore}</span>}
             {imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato</span>}
           </div>
           {!imp.report_inviato && (
