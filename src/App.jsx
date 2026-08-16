@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.12';
+const APP_VERSION = 'v1.13';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -597,7 +597,7 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
             {/* Ai NON designati si mostra CHI è l'incaricato (richiesta
                 Paolo 16.08): sanno a chi tocca, e chi sostituire se serve */}
             {!imp.report_atteso && !imp.report_inviato && imp.redattore && <span style={{ fontSize: 11, background: '#f0f0f0', color: '#555', borderRadius: 6, padding: '3px 8px' }}>📄 Incaricato del rapporto: {imp.redattore}</span>}
-            {imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato</span>}
+            {imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato{imp.inviato_da ? ` da ${imp.inviato_da}` : ''}</span>}
           </div>
           {!imp.report_inviato && (
             <button onClick={() => onFaiRapporto(imp)} style={{ ...GS.btnOutline, marginTop: 10, padding: 10, fontSize: 14 }}>Fai rapporto →</button>
@@ -1093,6 +1093,19 @@ function PreviewScreen({ collab, reportType, formData, reportNumber, onSubmit, o
     try {
       const c = await sb();
       const svcDateISO = toISO(form.serviceDate);
+      // Anti-corsa (Paolo 16.08): se mentre compilavo un collega ha già
+      // inviato il rapporto per QUESTO impiego, avvisa prima di creare un
+      // doppione — con scelta consapevole (il secondo può servire davvero).
+      if (planShiftId) {
+        try {
+          const { data: chk } = await c.rpc('report_my_plan_shifts', { p_collab_id: collab.id, p_pin: collab.pin, p_date: svcDateISO });
+          const mio = (chk || []).find(x => x.shift_id === planShiftId);
+          if (mio && mio.report_inviato) {
+            const procedi = window.confirm(`⚠ Un rapporto per questo impiego è già stato inviato${mio.inviato_da ? ' da ' + mio.inviato_da : ''}.\n\nVuoi inviare comunque anche il tuo?`);
+            if (!procedi) { setSubmitting(false); return; }
+          }
+        } catch { /* controllo best-effort: non blocca l'invio */ }
+      }
       const { data: num } = await c.rpc('next_report_number');
       const payload = {
         report_number: num,
