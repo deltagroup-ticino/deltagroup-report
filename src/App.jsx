@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.22';
+const APP_VERSION = 'v1.23';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -674,6 +674,12 @@ function EventiOggi({ collab, onEvento }) {
   if (!eventi) return null;
 
   const fmtD = d => String(d || '').split('-').reverse().join('/');
+  // Finestra di compilazione (decisione Paolo 18.08): il rapporto evento
+  // si fa SOLO il giorno dell'evento o quello dopo (eventi notturni).
+  // Gli eventi futuri si vedono da subito (PDF consultabile in anticipo).
+  const diffGiorni = ev => Math.round((new Date(ev.event_date + 'T12:00:00') - new Date(toISO(today()) + 'T12:00:00')) / 86400000);
+  const quando = ev => { const d = diffGiorni(ev); return d === 0 ? 'oggi' : d === 1 ? 'domani' : d === -1 ? 'ieri' : d > 1 ? `tra ${d} giorni` : null; };
+  const compilabile = ev => { const d = diffGiorni(ev); return d === 0 || d === -1; };
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>🎪 Eventi — sei il capo impiego</div>
@@ -681,14 +687,15 @@ function EventiOggi({ collab, onEvento }) {
         <div key={ev.event_id} style={{ ...GS.card, border: ev.inviato ? '0.5px solid #e0e0e0' : '1.5px solid #7c3aed' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
             <div style={{ fontWeight: 500, fontSize: 15 }}>{ev.service_name}</div>
-            <div style={{ fontSize: 13, color: '#333', whiteSpace: 'nowrap' }}>{fmtD(ev.event_date)}</div>
+            <div style={{ fontSize: 13, color: '#333', whiteSpace: 'nowrap' }}>{fmtD(ev.event_date)}{quando(ev) ? <span style={{ color: '#7c3aed', fontWeight: 600 }}> · {quando(ev)}</span> : null}</div>
           </div>
           <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{(ev.agenti || []).length} agenti pianificati{ev.pdf_name ? ` · 📎 ${ev.pdf_name}` : ''}</div>
           {ev.inviato && <div style={{ marginTop: 8 }}><span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto evento inviato</span></div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             {ev.pdf_url && <button onClick={() => window.open(ev.pdf_url, '_blank')} style={{ ...GS.btnGray, flex: 1, padding: 10, fontSize: 14 }}>📄 PDF impiego</button>}
-            {!ev.inviato && <button onClick={() => onEvento(ev)} style={{ ...GS.btnGreen, flex: 1, padding: 10, fontSize: 14 }}>Rapporto evento →</button>}
+            {!ev.inviato && compilabile(ev) && <button onClick={() => onEvento(ev)} style={{ ...GS.btnGreen, flex: 1, padding: 10, fontSize: 14 }}>Rapporto evento →</button>}
           </div>
+          {!ev.inviato && !compilabile(ev) && <div style={{ fontSize: 11, color: '#888', marginTop: 8 }}>📅 Il rapporto si compila il giorno dell'evento (o quello dopo, per gli eventi notturni).</div>}
         </div>
       ))}
     </div>
