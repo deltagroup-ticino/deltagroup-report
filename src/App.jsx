@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.20';
+const APP_VERSION = 'v1.21';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -649,7 +649,160 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
   );
 }
 
-function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogout, onRegolamento, hasNewRegolamento }) {
+// ── Grandi eventi (fase 3, tappa 2): card in home per il CAPO IMPIEGO ──
+// RPC security definer report_my_event (PIN verificato dentro): eventi di
+// oggi + quello di ieri finché manca il rapporto. PDF via link firmato
+// generato da PLAN (il bucket resta privato). Se l'SQL tappa 2 non è
+// ancora eseguito o non ci sono eventi, il blocco semplicemente non appare.
+function EventiOggi({ collab, onEvento }) {
+  const [eventi, setEventi] = useState(null);
+
+  useEffect(() => {
+    let attivo = true;
+    (async () => {
+      try {
+        const c = await sb();
+        const { data, error } = await c.rpc('report_my_event', {
+          p_collab_id: collab.id, p_pin: collab.pin, p_date: toISO(today()),
+        });
+        if (attivo && !error && Array.isArray(data) && data.length > 0) setEventi(data);
+      } catch { /* blocco assente */ }
+    })();
+    return () => { attivo = false; };
+  }, []);
+
+  if (!eventi) return null;
+
+  const fmtD = d => String(d || '').split('-').reverse().join('/');
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>🎪 Grandi eventi — sei il capo impiego</div>
+      {eventi.map(ev => (
+        <div key={ev.event_id} style={{ ...GS.card, border: ev.inviato ? '0.5px solid #e0e0e0' : '1.5px solid #7c3aed' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+            <div style={{ fontWeight: 500, fontSize: 15 }}>{ev.service_name}</div>
+            <div style={{ fontSize: 13, color: '#333', whiteSpace: 'nowrap' }}>{fmtD(ev.event_date)}</div>
+          </div>
+          <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{(ev.agenti || []).length} agenti pianificati{ev.pdf_name ? ` · 📎 ${ev.pdf_name}` : ''}</div>
+          {ev.inviato && <div style={{ marginTop: 8 }}><span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto evento inviato</span></div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {ev.pdf_url && <button onClick={() => window.open(ev.pdf_url, '_blank')} style={{ ...GS.btnGray, flex: 1, padding: 10, fontSize: 14 }}>📄 PDF impiego</button>}
+            {!ev.inviato && <button onClick={() => onEvento(ev)} style={{ ...GS.btnGreen, flex: 1, padding: 10, fontSize: 14 }}>Rapporto evento →</button>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Rapporto evento (capo impiego): griglia agenti + note + cronologia ──
+// Un rapporto solo testo con event_grid_json (presente/orari/nota per ogni
+// pianificato) e plan_event_id: in PLAN arriva tra i "📥 non collegati"
+// del registro, la validazione multipla è la tappa 3.
+function EventoReportScreen({ collab, evento, onDone, onBack }) {
+  const [grid, setGrid] = useState(() => (evento.agenti || []).map(a => ({ id: a.id || null, name: a.name, presente: true, inizio: a.ora_inizio || '', fine: a.ora_fine || '', nota: '' })));
+  const [notes, setNotes] = useState('');
+  const [crono, setCrono] = useState([]);
+  const [cronoTesto, setCronoTesto] = useState('');
+  const oraAdesso = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const [cronoOra, setCronoOra] = useState(oraAdesso);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const upd = (i, k, v) => setGrid(g => g.map((r, j) => j === i ? { ...r, [k]: v } : r));
+  const addCrono = () => { if (!cronoTesto.trim()) return; setCrono(c => [...c, { ora: cronoOra, testo: cronoTesto.trim() }]); setCronoTesto(''); setCronoOra(oraAdesso()); };
+  const presenti = grid.filter(r => r.presente);
+
+  const submit = async () => {
+    if (submitting) return;
+    if (!window.confirm(`Inviare il rapporto evento?\n${presenti.length} presenti · ${grid.length - presenti.length} assenti`)) return;
+    setSubmitting(true); setError('');
+    try {
+      const c = await sb();
+      const { data: num } = await c.rpc('next_report_number');
+      const inizi = presenti.map(r => r.inizio).filter(Boolean).sort();
+      const fini = presenti.map(r => r.fine).filter(Boolean).sort();
+      const payload = {
+        report_number: num, report_type: 'solo_testo',
+        service_date: evento.event_date, is_late: false,
+        submitted_by_id: collab.id, submitted_by_name: collab.agent_name,
+        agents_json: presenti.map(r => ({ id: r.id, name: r.name })),
+        client_name: evento.service_name, location: '', address: null,
+        start_time: inizi[0] || '', end_time: fini[fini.length - 1] || '',
+        has_break: false, notes: notes || null, status: 'submitted',
+        plan_shift_id: null,
+        plan_event_id: evento.event_id,
+        event_grid_json: grid.map(r => ({ id: r.id, name: r.name, presente: r.presente, ora_inizio: r.presente ? r.inizio : null, ora_fine: r.presente ? r.fine : null, nota: r.nota || null })),
+        chronology_json: crono.length ? crono : null,
+      };
+      let { data: rpt, error: err } = await c.from('dr_reports').insert(payload).select().single();
+      // Transizione: DB senza le colonne evento → il rapporto va salvato lo stesso
+      if (err && /plan_event_id|event_grid_json|chronology_json/i.test(err.message || '')) {
+        const { plan_event_id: _e, event_grid_json: _g, chronology_json: _k, ...base } = payload;
+        ({ data: rpt, error: err } = await c.from('dr_reports').insert(base).select().single());
+      }
+      if (err) throw err;
+      onDone(rpt);
+    } catch (e) { setError("Errore durante l'invio. Riprova."); console.error(e); }
+    setSubmitting(false);
+  };
+
+  const fmtD = d => String(d || '').split('-').reverse().join('/');
+  return (
+    <div style={{ ...GS.body, paddingBottom: 40 }}>
+      <div style={GS.header}>
+        <BackBtn onClick={onBack} />
+        <AppName />
+      </div>
+      <div style={{ padding: 16 }}>
+        <div style={{ ...GS.card, background: '#f5f0ff', border: '0.5px solid #7c3aed', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#7c3aed', fontWeight: 600, marginBottom: 3 }}>🎪 RAPPORTO EVENTO</div>
+          <div style={{ fontSize: 15, fontWeight: 500 }}>{evento.service_name} · {fmtD(evento.event_date)}</div>
+          {evento.pdf_url && <button onClick={() => window.open(evento.pdf_url, '_blank')} style={{ ...GS.btnGray, marginTop: 10, padding: 9, fontSize: 13 }}>📄 Apri il PDF dell'impiego</button>}
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Agenti ({presenti.length}/{grid.length} presenti)</div>
+        <p style={{ fontSize: 12, color: '#888', marginTop: 0, marginBottom: 12 }}>Correggi gli orari effettivi, segna gli assenti e aggiungi una nota dove serve.</p>
+        {grid.map((r, i) => (
+          <div key={i} style={{ ...GS.card, padding: 12, marginBottom: 8, opacity: r.presente ? 1 : 0.7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontWeight: 500, fontSize: 14, flex: 1 }}>{r.name}</div>
+              <button onClick={() => upd(i, 'presente', !r.presente)} style={{ border: 'none', borderRadius: 7, padding: '7px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: r.presente ? GREEN_LIGHT : '#fdecea', color: r.presente ? GREEN : '#b3261e', fontFamily: 'inherit', touchAction: 'manipulation' }}>{r.presente ? '✓ presente' : '✗ assente'}</button>
+            </div>
+            {r.presente && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <input type="time" value={r.inizio} onChange={e => upd(i, 'inizio', e.target.value)} style={{ ...GS.input, width: 115, padding: '8px 10px' }} />
+                <span style={{ color: '#999' }}>–</span>
+                <input type="time" value={r.fine} onChange={e => upd(i, 'fine', e.target.value)} style={{ ...GS.input, width: 115, padding: '8px 10px' }} />
+              </div>
+            )}
+            <input value={r.nota} onChange={e => upd(i, 'nota', e.target.value)} placeholder={r.presente ? 'Nota (facoltativa)' : 'Motivo assenza (facoltativo)'} style={{ ...GS.input, marginTop: 8, padding: '8px 10px', fontSize: 13 }} />
+          </div>
+        ))}
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '18px 0 8px' }}>Note generali</div>
+        <textarea style={{ ...GS.input, height: 80, resize: 'none' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Osservazioni sull'evento…" />
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '18px 0 8px' }}>📓 Cronologia (facoltativa)</div>
+        {crono.map((e2, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '0.5px solid #eee' }}>
+            <strong>{e2.ora}</strong><span style={{ flex: 1 }}>{e2.testo}</span>
+            <button onClick={() => setCrono(c => c.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#b3261e', cursor: 'pointer', fontSize: 15, fontFamily: 'inherit' }}>✕</button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <input type="time" value={cronoOra} onChange={e => setCronoOra(e.target.value)} style={{ ...GS.input, width: 110, padding: '9px 10px' }} />
+          <input value={cronoTesto} onChange={e => setCronoTesto(e.target.value)} placeholder="Cosa è successo…" style={{ ...GS.input, flex: 1, padding: '9px 10px' }} onKeyDown={e => { if (e.key === 'Enter') addCrono(); }} />
+          <button onClick={addCrono} style={{ ...GS.btnGray, width: 52, padding: 9, fontSize: 17 }}>+</button>
+        </div>
+
+        {error && <div style={{ color: '#b3261e', fontSize: 13, marginTop: 14 }}>{error}</div>}
+        <button onClick={submit} disabled={submitting} style={{ ...GS.btnGreen, marginTop: 18, opacity: submitting ? 0.6 : 1 }}>{submitting ? 'Invio…' : '📤 Invia rapporto evento'}</button>
+      </div>
+    </div>
+  );
+}
+
+function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogout, onRegolamento, hasNewRegolamento, onEvento }) {
   const [stats, setStats] = useState({ count: 0, lastDate: null, lastTime: null });
   const [draft, setDraft] = useState(() => getDraft(collab.id));
   const scartaDraft = () => { if (window.confirm('Scartare il rapporto in corso? I dati inseriti andranno persi.')) { clearDraft(collab.id); setDraft(null); } };
@@ -730,6 +883,8 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
             </div>
           </div>
         )}
+
+        <EventiOggi collab={collab} onEvento={onEvento} />
 
         <ImpieghiOggi collab={collab} onFaiRapporto={onImpiego} />
 
@@ -1505,6 +1660,7 @@ export default function App() {
   const [collab, setCollab] = useState(null);
   const [reportType, setReportType] = useState(null);
   const [planImpiego, setPlanImpiego] = useState(null); // impiego PLAN scelto in home (fase 2)
+  const [eventoSel, setEventoSel] = useState(null); // grande evento scelto in home (fase 3, tappa 2)
   const [draftData, setDraftData] = useState(null);     // bozza "rapporto in corso" ripresa dalla home
   // Nuovo rapporto con una bozza già presente: chiedere prima di sovrascriverla
   const confermaSovrascrivi = () => !getDraft(collab.id) || window.confirm('C\'è già un rapporto in corso: iniziandone uno nuovo verrà sovrascritto. Continuare?');
@@ -1566,7 +1722,8 @@ export default function App() {
   else if(screen==='login') content = <LoginScreen onLogin={handleLogin} onFirstAccess={()=>setScreen('firstAccess')} />;
   else if(screen==='firstAccess') content = <FirstAccessScreen onBack={()=>setScreen('login')} onPinRevealed={(data)=>{setCollab(data);setScreen('regulation');}} />;
   else if(screen==='regulation') content = <RegulationScreen collab={collab} onAccepted={()=>{saveSession({collabId:collab.id,collabName:collab.agent_name,regulationVersion:REGULATION_VERSION,pin:collab.pin});setScreen('home');}} />;
-  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(imp);setScreen('tipoImpiego');}} onResumeDraft={(d)=>{setDraftData(d);setPlanImpiego(d.impiego||null);setReportType(d.reportType||'solo_testo');setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
+  else if(screen==='home') content = <HomeScreen collab={collab} onNew={(t)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(null);setReportType(t);setScreen('form');}} onImpiego={(imp)=>{if(!confermaSovrascrivi())return;setDraftData(null);setPlanImpiego(imp);setScreen('tipoImpiego');}} onResumeDraft={(d)=>{setDraftData(d);setPlanImpiego(d.impiego||null);setReportType(d.reportType||'solo_testo');setScreen('form');}} onArchive={goArchive} onLogout={handleLogout} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} onEvento={(ev)=>{setEventoSel(ev);setScreen('evento');}} />;
+  else if(screen==='evento') content = <EventoReportScreen collab={collab} evento={eventoSel} onDone={(rpt)=>{setEventoSel(null);setSubmittedReport(rpt);setScreen('success');}} onBack={()=>{setEventoSel(null);goHome();}} />;
   else if(screen==='tipoImpiego') content = <ReportTypeScreen impiego={planImpiego} onSelect={(t)=>{setReportType(t);setScreen('form');}} onHome={()=>{setPlanImpiego(null);goHome();}} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='form') content = <ReportFormScreen key={draftData?'draft':'new-'+(planImpiego?.shift_id||reportType)} collab={collab} reportType={reportType} impiego={planImpiego} draft={draftData} onNext={handleFormNext} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
   else if(screen==='preview') content = <PreviewScreen collab={collab} reportType={reportType} formData={formData} reportNumber={reportNumber} onSubmit={handleSubmitted} onHome={goHome} onArchive={goArchive} onRegolamento={goRegolamento} hasNewRegolamento={hasNewReg} />;
