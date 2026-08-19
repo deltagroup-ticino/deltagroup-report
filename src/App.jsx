@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.23';
+const APP_VERSION = 'v1.24';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -634,13 +634,16 @@ function ImpieghiOggi({ collab, onFaiRapporto }) {
           {imp.luogo && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{imp.luogo}</div>}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
             {imp.da_ieri && <span style={{ fontSize: 11, background: '#eef1f7', color: '#4a5a7a', borderRadius: 6, padding: '3px 8px' }}>🌙 iniziato ieri</span>}
-            {imp.report_atteso && !imp.report_inviato && <span style={{ fontSize: 11, background: '#faeeda', color: '#854f0b', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>📄 Rapporto atteso</span>}
+            {/* Impiego di un EVENTO: card solo informativa, il rapporto lo
+                fa il capo impiego dalla card 🎪 (niente doppioni) */}
+            {imp.is_evento && <span style={{ fontSize: 11, background: '#f3e8ff', color: '#7c3aed', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>🎪 Evento — rapporto a cura del capo impiego</span>}
+            {!imp.is_evento && imp.report_atteso && !imp.report_inviato && <span style={{ fontSize: 11, background: '#faeeda', color: '#854f0b', borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>📄 Rapporto atteso</span>}
             {/* Ai NON designati si mostra CHI è l'incaricato (richiesta
                 Paolo 16.08): sanno a chi tocca, e chi sostituire se serve */}
-            {!imp.report_atteso && !imp.report_inviato && imp.redattore && <span style={{ fontSize: 11, background: '#f0f0f0', color: '#555', borderRadius: 6, padding: '3px 8px' }}>📄 Incaricato del rapporto: {imp.redattore}</span>}
-            {imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato{imp.inviato_da ? ` da ${imp.inviato_da}` : ''}</span>}
+            {!imp.is_evento && !imp.report_atteso && !imp.report_inviato && imp.redattore && <span style={{ fontSize: 11, background: '#f0f0f0', color: '#555', borderRadius: 6, padding: '3px 8px' }}>📄 Incaricato del rapporto: {imp.redattore}</span>}
+            {!imp.is_evento && imp.report_inviato && <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '3px 8px', fontWeight: 500 }}>✓ Rapporto inviato{imp.inviato_da ? ` da ${imp.inviato_da}` : ''}</span>}
           </div>
-          {!imp.report_inviato && (
+          {!imp.report_inviato && !imp.is_evento && (
             <button onClick={() => onFaiRapporto(imp)} style={{ ...GS.btnOutline, marginTop: 10, padding: 10, fontSize: 14 }}>Fai rapporto →</button>
           )}
         </div>
@@ -707,7 +710,7 @@ function EventiOggi({ collab, onEvento }) {
 // pianificato) e plan_event_id: in PLAN arriva tra i "📥 non collegati"
 // del registro, la validazione multipla è la tappa 3.
 function EventoReportScreen({ collab, evento, onDone, onBack }) {
-  const [grid, setGrid] = useState(() => (evento.agenti || []).map(a => ({ id: a.id || null, name: a.name, presente: true, inizio: a.ora_inizio || '', fine: a.ora_fine || '', nota: '' })));
+  const [grid, setGrid] = useState(() => (evento.agenti || []).map(a => ({ id: a.id || null, name: a.name, presente: true, inizio: a.ora_inizio || '', fine: a.ora_fine || '', pausa: 0, nota: '' })));
   const [notes, setNotes] = useState('');
   const [crono, setCrono] = useState([]);
   const [cronoTesto, setCronoTesto] = useState('');
@@ -738,7 +741,7 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
         has_break: false, notes: notes || null, status: 'submitted',
         plan_shift_id: null,
         plan_event_id: evento.event_id,
-        event_grid_json: grid.map(r => ({ id: r.id, name: r.name, presente: r.presente, ora_inizio: r.presente ? r.inizio : null, ora_fine: r.presente ? r.fine : null, nota: r.nota || null })),
+        event_grid_json: grid.map(r => ({ id: r.id, name: r.name, presente: r.presente, ora_inizio: r.presente ? r.inizio : null, ora_fine: r.presente ? r.fine : null, pausa_min: r.presente ? (r.pausa || 0) : null, nota: r.nota || null })),
         chronology_json: crono.length ? crono : null,
       };
       let { data: rpt, error: err } = await c.from('dr_reports').insert(payload).select().single();
@@ -780,6 +783,14 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
                 <input type="time" value={r.inizio} onChange={e => upd(i, 'inizio', e.target.value)} style={{ ...GS.input, width: 115, padding: '8px 10px' }} />
                 <span style={{ color: '#999' }}>–</span>
                 <input type="time" value={r.fine} onChange={e => upd(i, 'fine', e.target.value)} style={{ ...GS.input, width: 115, padding: '8px 10px' }} />
+              </div>
+            )}
+            {r.presente && (
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: '#888' }}>Pausa:</span>
+                {[0, 15, 30, 45, 60, 90].map(m => (
+                  <button key={m} onClick={() => upd(i, 'pausa', m)} style={{ border: 'none', borderRadius: 7, padding: '6px 11px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: (r.pausa || 0) === m ? GREEN : '#f0f0f0', color: (r.pausa || 0) === m ? '#fff' : '#555', fontFamily: 'inherit', touchAction: 'manipulation' }}>{m === 0 ? '—' : `${m}′`}</button>
+                ))}
               </div>
             )}
             <input value={r.nota} onChange={e => upd(i, 'nota', e.target.value)} placeholder={r.presente ? 'Nota (facoltativa)' : 'Motivo assenza (facoltativo)'} style={{ ...GS.input, marginTop: 8, padding: '8px 10px', fontSize: 13 }} />
