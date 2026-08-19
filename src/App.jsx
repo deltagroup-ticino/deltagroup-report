@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.24';
+const APP_VERSION = 'v1.25';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -718,12 +718,16 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
   const [cronoOra, setCronoOra] = useState(oraAdesso);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Firma del capo impiego: obbligatoria (richiesta Paolo 19.08)
+  const [sig, setSig] = useState(null);
+  const [showSig, setShowSig] = useState(false);
   const upd = (i, k, v) => setGrid(g => g.map((r, j) => j === i ? { ...r, [k]: v } : r));
   const addCrono = () => { if (!cronoTesto.trim()) return; setCrono(c => [...c, { ora: cronoOra, testo: cronoTesto.trim() }]); setCronoTesto(''); setCronoOra(oraAdesso()); };
   const presenti = grid.filter(r => r.presente);
 
   const submit = async () => {
     if (submitting) return;
+    if (!sig) { setError('Manca la firma del capo impiego.'); return; }
     if (!window.confirm(`Inviare il rapporto evento?\n${presenti.length} presenti · ${grid.length - presenti.length} assenti`)) return;
     setSubmitting(true); setError('');
     try {
@@ -736,9 +740,10 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
         service_date: evento.event_date, is_late: false,
         submitted_by_id: collab.id, submitted_by_name: collab.agent_name,
         agents_json: presenti.map(r => ({ id: r.id, name: r.name })),
-        client_name: evento.service_name, location: '', address: null,
+        client_name: evento.service_name, location: '', address: '',
         start_time: inizi[0] || '', end_time: fini[fini.length - 1] || '',
         has_break: false, notes: notes || null, status: 'submitted',
+        agent_signature: sig,
         plan_shift_id: null,
         plan_event_id: evento.event_id,
         event_grid_json: grid.map(r => ({ id: r.id, name: r.name, presente: r.presente, ora_inizio: r.presente ? r.inizio : null, ora_fine: r.presente ? r.fine : null, pausa_min: r.presente ? (r.pausa || 0) : null, nota: r.nota || null })),
@@ -752,13 +757,20 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
       }
       if (err) throw err;
       onDone(rpt);
-    } catch (e) { setError("Errore durante l'invio. Riprova."); console.error(e); }
+    } catch (e) { setError(`Errore durante l'invio${e?.message ? ': ' + e.message : '. Riprova.'}`); console.error(e); }
     setSubmitting(false);
   };
 
   const fmtD = d => String(d || '').split('-').reverse().join('/');
   return (
     <div style={{ ...GS.body, paddingBottom: 40 }}>
+      {showSig && (
+        <SignatureOverlay
+          title="Firma capo impiego"
+          onConfirm={(dataURL) => { setSig(dataURL); setShowSig(false); }}
+          onCancel={() => setShowSig(false)}
+        />
+      )}
       <div style={GS.header}>
         <BackBtn onClick={onBack} />
         <AppName />
@@ -813,8 +825,15 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
           <button onClick={addCrono} style={{ ...GS.btnGray, width: 52, padding: 9, fontSize: 17 }}>+</button>
         </div>
 
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#666', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '18px 0 8px' }}>✍️ Firma capo impiego</div>
+        {sig
+          ? <div style={{ ...GS.card, padding: 10, textAlign: 'center' }}>
+              <img src={sig} alt="Firma capo impiego" style={{ maxHeight: 70, maxWidth: '100%' }} />
+              <button onClick={() => setShowSig(true)} style={{ ...GS.btnGray, marginTop: 8, padding: 9, fontSize: 13 }}>Rifai la firma</button>
+            </div>
+          : <button onClick={() => setShowSig(true)} style={{ ...GS.card, width: '100%', padding: 18, border: '1.5px dashed #bbb', color: '#888', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', touchAction: 'manipulation', textAlign: 'center' }}>Tocca per firmare</button>}
         {error && <div style={{ color: '#b3261e', fontSize: 13, marginTop: 14 }}>{error}</div>}
-        <button onClick={submit} disabled={submitting} style={{ ...GS.btnGreen, marginTop: 18, opacity: submitting ? 0.6 : 1 }}>{submitting ? 'Invio…' : '📤 Invia rapporto evento'}</button>
+        <button onClick={submit} disabled={submitting || !sig} style={{ ...GS.btnGreen, marginTop: 18, opacity: (submitting || !sig) ? 0.6 : 1 }}>{submitting ? 'Invio…' : '📤 Invia rapporto evento'}</button>
       </div>
     </div>
   );
