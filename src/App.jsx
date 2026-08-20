@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.26';
+const APP_VERSION = 'v1.27';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -888,12 +888,16 @@ function PpsHome({ collab }) {
         <div key={svc} style={{ ...GS.card }}>
           <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 8 }}>{svc}</div>
           {docs.map(d => (
-            <div key={d.pps_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '0.5px solid #eee', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 130, fontSize: 13, color: '#333' }}>📄 {d.pdf_name || 'Documento'}</div>
-              {d.pdf_url && <button onClick={() => apri(d)} style={{ ...GS.btnGray, width: 'auto', padding: '8px 14px', fontSize: 13 }}>Apri</button>}
-              {d.letto
-                ? <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '4px 9px', fontWeight: 600 }}>✓ Letta</span>
-                : <button onClick={() => { if (window.confirm(`Confermi di aver letto "${d.pdf_name || 'il documento'}"?\nLa conferma viene registrata con data e ora.`)) registra(d, true); }} style={{ border: 'none', borderRadius: 7, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#faeeda', color: '#854f0b', fontFamily: 'inherit', touchAction: 'manipulation' }}>✓ Ho letto</button>}
+            <div key={d.pps_id} style={{ padding: '8px 0', borderTop: '0.5px solid #eee' }}>
+              {/* Nome su riga propria (i nomi file lunghi senza spazi si
+                  spezzano), bottoni sotto: niente sovrapposizioni */}
+              <div style={{ fontSize: 13, color: '#333', wordBreak: 'break-all', lineHeight: 1.4, marginBottom: 8 }}>📄 {d.pdf_name || 'Documento'}</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {d.pdf_url && <button onClick={() => apri(d)} style={{ ...GS.btnGray, flex: 1, padding: '9px 14px', fontSize: 13 }}>Apri</button>}
+                {d.letto
+                  ? <span style={{ flex: 1, textAlign: 'center', fontSize: 12, background: GREEN_LIGHT, color: GREEN, borderRadius: 7, padding: '9px 0', fontWeight: 600 }}>✓ Letta</span>
+                  : <button onClick={() => { if (window.confirm(`Confermi di aver letto "${d.pdf_name || 'il documento'}"?\nLa conferma viene registrata con data e ora.`)) registra(d, true); }} style={{ flex: 1, border: 'none', borderRadius: 7, padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#faeeda', color: '#854f0b', fontFamily: 'inherit', touchAction: 'manipulation' }}>✓ Ho letto</button>}
+              </div>
             </div>
           ))}
         </div>
