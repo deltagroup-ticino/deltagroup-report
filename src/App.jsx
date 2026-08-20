@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.25';
+const APP_VERSION = 'v1.26';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -839,6 +839,69 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
   );
 }
 
+// ── 📕 Le tue PPS (19.08, decisioni Paolo): istruzioni dei servizi su cui
+// il collaboratore è impiegato — SOLO nomi servizio, MAI date/orari (l'app
+// non è il piano di lavoro). Visibilità decisa dalla RPC (PIN dentro):
+// turni sul servizio da oggi in avanti o negli ultimi 7 giorni. Apertura
+// registrata; "✓ Ho letto" = presa visione esplicita, timbrata.
+function PpsHome({ collab }) {
+  const [rows, setRows] = useState(null);
+
+  useEffect(() => {
+    let attivo = true;
+    (async () => {
+      try {
+        const c = await sb();
+        const { data, error } = await c.rpc('report_my_pps', {
+          p_collab_id: collab.id, p_pin: collab.pin, p_date: toISO(today()),
+        });
+        if (attivo && !error && Array.isArray(data) && data.length > 0) setRows(data);
+      } catch { /* blocco assente */ }
+    })();
+    return () => { attivo = false; };
+  }, []);
+
+  if (!rows) return null;
+
+  const registra = async (r, conferma) => {
+    try {
+      const c = await sb();
+      const { data, error } = await c.rpc('report_pps_visione', {
+        p_collab_id: collab.id, p_pin: collab.pin, p_pps_id: r.pps_id, p_conferma: conferma,
+      });
+      if (conferma && !error && data) setRows(p => (p || []).map(x => x.pps_id === r.pps_id ? { ...x, letto: true } : x));
+    } catch { /* best-effort */ }
+  };
+  const apri = r => {
+    if (r.pdf_url) window.open(r.pdf_url, '_blank');
+    registra(r, false);
+  };
+
+  const byService = {};
+  rows.forEach(r => { (byService[r.service_name] || (byService[r.service_name] = [])).push(r); });
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#0e7490', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>📕 Le tue PPS</div>
+      <p style={{ fontSize: 11, color: '#999', margin: '0 0 12px' }}>Istruzioni dei servizi su cui sei impiegato. Documenti riservati: vietato divulgarli, fotografarli o inoltrarli (regolamento).</p>
+      {Object.entries(byService).map(([svc, docs]) => (
+        <div key={svc} style={{ ...GS.card }}>
+          <div style={{ fontWeight: 500, fontSize: 15, marginBottom: 8 }}>{svc}</div>
+          {docs.map(d => (
+            <div key={d.pps_id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '0.5px solid #eee', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 130, fontSize: 13, color: '#333' }}>📄 {d.pdf_name || 'Documento'}</div>
+              {d.pdf_url && <button onClick={() => apri(d)} style={{ ...GS.btnGray, width: 'auto', padding: '8px 14px', fontSize: 13 }}>Apri</button>}
+              {d.letto
+                ? <span style={{ fontSize: 11, background: GREEN_LIGHT, color: GREEN, borderRadius: 6, padding: '4px 9px', fontWeight: 600 }}>✓ Letta</span>
+                : <button onClick={() => { if (window.confirm(`Confermi di aver letto "${d.pdf_name || 'il documento'}"?\nLa conferma viene registrata con data e ora.`)) registra(d, true); }} style={{ border: 'none', borderRadius: 7, padding: '8px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#faeeda', color: '#854f0b', fontFamily: 'inherit', touchAction: 'manipulation' }}>✓ Ho letto</button>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogout, onRegolamento, hasNewRegolamento, onEvento }) {
   const [stats, setStats] = useState({ count: 0, lastDate: null, lastTime: null });
   const [draft, setDraft] = useState(() => getDraft(collab.id));
@@ -924,6 +987,8 @@ function HomeScreen({ collab, onNew, onImpiego, onResumeDraft, onArchive, onLogo
         <EventiOggi collab={collab} onEvento={onEvento} />
 
         <ImpieghiOggi collab={collab} onFaiRapporto={onImpiego} />
+
+        <PpsHome collab={collab} />
 
         {/* I due rapporti liberi sono PARI GRADO (decisione Paolo 15.08):
             l'evidenza visiva va al blocco impieghi di oggi qui sopra */}
