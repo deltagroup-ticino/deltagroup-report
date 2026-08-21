@@ -4,7 +4,7 @@
 // ╚══════════════════════════════════════════════════════════════════╝
 const SUPABASE_URL = "https://golheevkvfqcpgovnawj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdvbGhlZXZrdmZxY3Bnb3ZuYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNDIwODMsImV4cCI6MjA4OTgxODA4M30.M6S4oxVB112VBj9CZ8ZSFW79Kz7rJGs9tk1qpGhneWI";
-const APP_VERSION = 'v1.27';
+const APP_VERSION = 'v1.28';
 const GREEN = '#1B6B1B';
 const GREEN_LIGHT = '#eaf3de';
 const REGULATION_VERSION = 1;
@@ -842,10 +842,14 @@ function EventoReportScreen({ collab, evento, onDone, onBack }) {
 // ── 📕 Le tue PPS (19.08, decisioni Paolo): istruzioni dei servizi su cui
 // il collaboratore è impiegato — SOLO nomi servizio, MAI date/orari (l'app
 // non è il piano di lavoro). Visibilità decisa dalla RPC (PIN dentro):
-// turni sul servizio da oggi in avanti o negli ultimi 7 giorni. Apertura
-// registrata; "✓ Ho letto" = presa visione esplicita, timbrata.
+// turni sul servizio da oggi in avanti o negli ultimi 7 giorni.
+// Presa visione (20.08, scelta Paolo): NIENTE bottone libero — al RIENTRO
+// nell'app dopo l'apertura compare la conferma "Confermi di aver letto?";
+// finché non conferma, il documento resta "⚠ Da confermare" (tap =
+// riproposta). Così la conferma implica sempre almeno un'apertura.
 function PpsHome({ collab }) {
   const [rows, setRows] = useState(null);
+  const pendingRef = useRef(null); // documento aperto, in attesa del rientro
 
   useEffect(() => {
     let attivo = true;
@@ -861,8 +865,6 @@ function PpsHome({ collab }) {
     return () => { attivo = false; };
   }, []);
 
-  if (!rows) return null;
-
   const registra = async (r, conferma) => {
     try {
       const c = await sb();
@@ -872,10 +874,30 @@ function PpsHome({ collab }) {
       if (conferma && !error && data) setRows(p => (p || []).map(x => x.pps_id === r.pps_id ? { ...x, letto: true } : x));
     } catch { /* best-effort */ }
   };
+  const chiediConferma = r => {
+    if (window.confirm(`Confermi di aver letto "${r.pdf_name || 'il documento'}"?\nLa conferma viene registrata con data e ora.`)) registra(r, true);
+  };
   const apri = r => {
     if (r.pdf_url) window.open(r.pdf_url, '_blank');
     registra(r, false);
+    setRows(p => (p || []).map(x => x.pps_id === r.pps_id ? { ...x, aperta: true } : x));
+    if (!r.letto) pendingRef.current = r;
   };
+  // Al rientro nell'app dopo la lettura: conferma subito, o resta "⚠"
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      const r = pendingRef.current;
+      if (!r) return;
+      pendingRef.current = null;
+      setTimeout(() => chiediConferma(r), 350);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => { document.removeEventListener('visibilitychange', onVis); window.removeEventListener('focus', onVis); };
+  }, []); // eslint-disable-line
+
+  if (!rows) return null;
 
   const byService = {};
   rows.forEach(r => { (byService[r.service_name] || (byService[r.service_name] = [])).push(r); });
@@ -896,7 +918,9 @@ function PpsHome({ collab }) {
                 {d.pdf_url && <button onClick={() => apri(d)} style={{ ...GS.btnGray, flex: 1, padding: '9px 14px', fontSize: 13 }}>Apri</button>}
                 {d.letto
                   ? <span style={{ flex: 1, textAlign: 'center', fontSize: 12, background: GREEN_LIGHT, color: GREEN, borderRadius: 7, padding: '9px 0', fontWeight: 600 }}>✓ Letta</span>
-                  : <button onClick={() => { if (window.confirm(`Confermi di aver letto "${d.pdf_name || 'il documento'}"?\nLa conferma viene registrata con data e ora.`)) registra(d, true); }} style={{ flex: 1, border: 'none', borderRadius: 7, padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#faeeda', color: '#854f0b', fontFamily: 'inherit', touchAction: 'manipulation' }}>✓ Ho letto</button>}
+                  : d.aperta
+                    ? <button onClick={() => chiediConferma(d)} style={{ flex: 1, border: 'none', borderRadius: 7, padding: '9px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#faeeda', color: '#854f0b', fontFamily: 'inherit', touchAction: 'manipulation' }}>⚠ Da confermare</button>
+                    : <span style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#aaa', padding: '9px 0' }}>da leggere</span>}
               </div>
             </div>
           ))}
